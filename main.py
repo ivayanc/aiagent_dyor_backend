@@ -5,7 +5,7 @@ from typing import List
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
-from settings import MONGODB_URL
+from settings import MONGODB_URL, ALLOWED_ORIGINS
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,7 +18,7 @@ app = FastAPI(lifespan=lifespan)
 # Add this after creating the FastAPI app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with your frontend domain
+    allow_origins=ALLOWED_ORIGINS,  # In production, replace with your frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

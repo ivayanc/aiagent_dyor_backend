@@ -37,7 +37,9 @@ async def get_token_analyses(
     serialized_analyses = []
     for analysis in analyses:
         analysis['_id'] = str(analysis['_id'])  # Convert ObjectId to string
-        analysis['current_price'] = '$' +str(round(float(analysis['current_price'][1:].replace(",", "")), 5))
+        # Convert price string to float and format using scientific notation
+        price = float(analysis['current_price'][1:].replace(",", ""))
+        analysis['current_price'] = f'${price:.2e}' if price < 0.01 else f'${price:.5f}'
         serialized_analyses.append(analysis)
     
     return {

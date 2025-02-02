@@ -1,3 +1,5 @@
+from pprint import pprint
+
 from agents.grok import GrokAI
 from agents.openai import OpenAI
 
@@ -24,6 +26,7 @@ def prepare_token_info_promt(token_info: dict):
     Token liquidity in USDT: {token_info['liquidity']}
     Current price in USDT: {token_info['current_price']}
     Max price in USDT: {token_info['max_price']}
+    Max price date: {token_info['max_price_date']}
     Total supply: {token_info['total_supply_formatted']}
     """
 
@@ -39,7 +42,9 @@ def get_token_info(token_address: str, chain: str):
     price_info = moralis_connector.get_token_price_info(token_address=token_address, chain=chain)
     token_info['liquidity'] = price_info.get('pairTotalLiquidityUsd', 'Insufficient liquidity in pools to calculate the price')
     token_info['current_price'] = price_info.get('usdPrice', 'Insufficient liquidity in pools to calculate the price')
-    token_info['max_price'] = bitquery_connector.get_token_max_price(token_address=token_address, date=datetime.now().strftime('%Y-%m-%d'), network=chain)
+    max_price_info = bitquery_connector.get_token_max_price(token_address=token_address, date=datetime.now().strftime('%Y-%m-%d'), network=chain)
+    token_info['max_price'] = max_price_info.get('Trade', {}).get('high', 'NO AVAILABLE DATA')
+    token_info['max_price_date'] = max_price_info.get('Block', {}).get('Timefield', 'NO AVAILABLE DATA')
     token_info['chain'] = chain
     return token_info
 
@@ -54,9 +59,9 @@ def get_ticker_info_analysis(prompt: str):
     Currently you are analyzing provided token info and answering what future you see for this token leaning on 10 years of experience as quant trader.
     First of all you should take a look at number of holders and top holders.
     Secondly you should take a look at liquidity and current price. If liquidity is low or current price is high, then this token is not a good investment.
-    Thirdly you should take a look at max price.
+    Thirdly you should take a look at max price and max price date.
     Fourthly you should take a look at total supply.
-    Fifthly you should take a look at token name and symbol. If token name and symbol are not unique and you know others with the same name and symbol, then this token is bad.
+    Fifthly you should take a look at token name and symbol.
     Your response always should contain at the end return confident in procents about confidence in future of that token "Confidence in bright future of that token: your exepctection of confidence in bright future of that token in % ".
     """
     return openai.chat(prompt, lore)
@@ -64,6 +69,7 @@ def get_ticker_info_analysis(prompt: str):
 
 def get_ticker_decision(token_address: str, chain: str):
     token_info = get_token_info(token_address=token_address, chain=chain)
+    pprint(token_info)
     ticker_analytic = get_ticker_info_analysis(prepare_token_info_promt(token_info))
     community_analysis = get_community_analysis(prepare_prompt_for_grok(token_info))
     lore = f"""
@@ -84,7 +90,8 @@ def get_ticker_decision(token_address: str, chain: str):
     7. Brief technical side analysis: BRIEF QUANT TRADER ANALYSIS HERE (No longer than 3 sentences)
     8. Brief community side analysis: BRIEF PSYCHOLOGICAL ANALYSIS HERE (No longer than 3 sentences)
     9. Final decision: FINAL DECISION HERE(ONLY HIGH RISK, MEDIUM RISK, LOW RISK)
-    10. Explanation: FINAL EXPLANATION HERE(No longer than 4 sentences)
+    10. Final confident level: FINAL CONFIDENT LEVEL HERE (Only number in %)
+    11. Explanation: FINAL EXPLANATION HERE(No longer than 4 sentences)
     """
     message = f"""
     Token name: {token_info['name']}

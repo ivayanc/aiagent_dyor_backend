@@ -1,24 +1,28 @@
 from fastapi import FastAPI, Query, HTTPException
 from utils import get_ticker_decision
 from connectors.mongodb import MongoDBConnector, TokenAnalysis
-import os
 from typing import List
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
+
+from settings import MONGODB_URL
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    mongodb_url = os.getenv("MONGODB_URL", "mongodb://mongodb:27017/")
-    mongodb_user = os.getenv("MONGODB_USER")
-    mongodb_password = os.getenv("MONGODB_PASSWORD")
-    
-    if mongodb_user and mongodb_password:
-        mongodb_url = f"mongodb://{mongodb_user}:{mongodb_password}@{mongodb_url.split('://')[1]}"
-    
-    await MongoDBConnector.connect(mongodb_url)
+    await MongoDBConnector.connect(MONGODB_URL)
     yield
     await MongoDBConnector.close()
 
 app = FastAPI(lifespan=lifespan)
+
+# Add this after creating the FastAPI app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with your frontend domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/token-analyses")
 async def get_token_analyses(
@@ -27,12 +31,13 @@ async def get_token_analyses(
 ):
     skip = (page - 1) * per_page
     total_count = await MongoDBConnector.get_total_count()
-    analyses = await MongoDBConnector.get_analyses(skip=skip, limit=per_page)
+    analyses = await MongoDBConnector.get_analyses(skip=skip, limit=per_page, sort=[("updated_at", -1)])
     
     # Convert MongoDB documents to dict and handle ObjectId serialization
     serialized_analyses = []
     for analysis in analyses:
         analysis['_id'] = str(analysis['_id'])  # Convert ObjectId to string
+        analysis['current_price'] = '$' +str(round(float(analysis['current_price'][1:].replace(",", "")), 5))
         serialized_analyses.append(analysis)
     
     return {
@@ -60,6 +65,10 @@ async def get_token_analysis(chain: str, token_address: str):
 @app.get("/token-decision/{chain}/{token_address}")
 async def get_decision(chain: str, token_address: str):
     try:
+        # Get existing analysis first
+        existing_analysis = await MongoDBConnector.get_by_address_and_chain(token_address, chain)
+        
+        # Get new decision
         decision = get_ticker_decision(token_address=token_address, chain=chain)
         decision_lines = decision.split("\n")
         parsed_decision = {}
@@ -69,7 +78,31 @@ async def get_decision(chain: str, token_address: str):
                 key = key.split(". ", 1)[1] if ". " in key else key
                 parsed_decision[key] = value
 
-        # Create analysis object
+        # Calculate price and holder changes if previous analysis exists
+        price_change = None
+        holder_change = None
+        if existing_analysis:
+            try:
+                # Extract numeric values from price strings
+                current_price_str = parsed_decision.get("Current price", "").strip().replace("$", "")
+                previous_price_str = existing_analysis["current_price"].replace("$", "")
+                
+                if current_price_str and previous_price_str:
+                    current_price = float(current_price_str)
+                    previous_price = float(previous_price_str)
+                    price_diff = ((current_price - previous_price) / previous_price) * 100
+                    price_change = f"{price_diff:+.2f}%"
+
+                # Extract numeric values from holder counts
+                current_holders = int(parsed_decision.get("Current holders count", "").strip().replace(",", ""))
+                previous_holders = int(existing_analysis["current_holders_count"].replace(",", ""))
+                holder_diff = current_holders - previous_holders
+                holder_change = f"{holder_diff:+,d}"
+            except (ValueError, TypeError):
+                # If there's any error in conversion, keep the changes as None
+                pass
+
+        # Create analysis object with the new fields
         analysis = TokenAnalysis(
             token_name=parsed_decision.get("Token name", "").strip(),
             token_symbol=parsed_decision.get("Token symbol", "").strip("$").strip(),
@@ -80,10 +113,12 @@ async def get_decision(chain: str, token_address: str):
             technical_analysis=parsed_decision.get("Brief technical side analysis", "").strip(),
             community_analysis=parsed_decision.get("Brief community side analysis", "").strip(),
             final_decision=parsed_decision.get("Final decision", "").strip(),
-            explanation=parsed_decision.get("Explanation", "").strip()
+            explanation=parsed_decision.get("Explanation", "").strip(),
+            final_confident_level=parsed_decision.get("Final confident level", "").strip(),
+            price_change=price_change,
+            holder_change=holder_change
         )
         
-        existing_analysis = await MongoDBConnector.get_by_address_and_chain(token_address, chain)
         if existing_analysis:
             await MongoDBConnector.update_analysis(token_address, chain, analysis)
         else:

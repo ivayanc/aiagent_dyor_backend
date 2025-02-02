@@ -74,5 +74,5 @@ class BitqueryConnector:
         except requests.exceptions.RequestException as e:
             print('Error getting token holders count')
             return 0
-        return response.json()['data']['EVM']['DEXTradeByTokens'][0]['Trade']['high']
+        return response.json()['data']['EVM']['DEXTradeByTokens'][0]
     

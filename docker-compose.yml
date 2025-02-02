@@ -10,7 +10,8 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - MONGODB_URL=mongodb://mongodb:27017/
+    env_file:
+      - .env
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
@@ -18,21 +19,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
-    depends_on:
-      - mongodb
-
-  mongodb:
-    image: mongo:latest
-    container_name: mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    restart: unless-stopped
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=example
-
-volumes:
-  mongodb_data:
-    

@@ -13,7 +13,10 @@ class TokenAnalysis(BaseModel):
     technical_analysis: str
     community_analysis: str
     final_decision: str
+    final_confident_level: str
     explanation: str
+    price_change: Optional[str] = None
+    holder_change: Optional[str] = None
     created_at: datetime = datetime.utcnow()
     updated_at: datetime = datetime.utcnow()
 
@@ -59,8 +62,11 @@ class MongoDBConnector:
         )
 
     @classmethod
-    async def get_analyses(cls, skip: int = 0, limit: int = 10):
-        cursor = cls.db[cls.collection_name].find({}).skip(skip).limit(limit)
+    async def get_analyses(cls, skip: int = 0, limit: int = 10, sort: List = None):
+        cursor = cls.db[cls.collection_name].find({})
+        if sort:
+            cursor = cursor.sort(sort)
+        cursor = cursor.skip(skip).limit(limit)
         return await cursor.to_list(length=limit)
 
     @classmethod

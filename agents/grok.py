@@ -31,7 +31,7 @@ class GrokAI:
                          Your response should contain psyhological analysis of the community.
                          Your response always should contain at the end return confident in procents about community will they rug token always in such format "Confidence in rugging token: your exepctection of rugging token in % ".
                          Your response should check if posts from community about this token is only shilling or they believe in this token.
-                         Your response should analyze if token provides something new.
+                         Your response should analyze if community believe in this token.
                          Your task not to write steps what to check but provide analysis."""},
                         {"role": "user", "content": prompt}
                     ],

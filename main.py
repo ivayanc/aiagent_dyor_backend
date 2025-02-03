@@ -1,9 +1,12 @@
-from fastapi import FastAPI, Query, HTTPException
-from utils import get_ticker_decision
+from fastapi import FastAPI, Query, HTTPException, File, UploadFile
+from utils import get_ticker_decision, parse_dyor_report
 from connectors.mongodb import MongoDBConnector, TokenAnalysis
 from typing import List
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+import docx
+import os
+from datetime import datetime
 
 from settings import MONGODB_URL, ALLOWED_ORIGINS
 
@@ -129,3 +132,26 @@ async def get_decision(chain: str, token_address: str):
         return {"status": "success", "data": analysis}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@app.post("/analyze-dyor")
+async def analyze_dyor(file: UploadFile = File(...)):
+    try:
+        # Verify file extension
+        if not file.filename.endswith('.docx'):
+            return {"status": "error", "message": "Invalid file format. Please upload a .docx file"}
+
+        # Save uploaded file temporarily
+        temp_file_path = f"temp_{file.filename}"
+        with open(temp_file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+
+        result = parse_dyor_report(temp_file_path)
+        # Clean up temp file
+        os.remove(temp_file_path)
+        
+        return result
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    

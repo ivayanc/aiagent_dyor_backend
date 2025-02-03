@@ -2,6 +2,7 @@ from pprint import pprint
 
 from agents.grok import GrokAI
 from agents.openai import OpenAI
+from agents.dyor_parser import DYORParser
 
 from connectors.moralis import MoralisConnector
 from connectors.bitquery_connector import BitqueryConnector
@@ -14,6 +15,7 @@ grok = GrokAI(GROK_API_KEY)
 openai = OpenAI(OPENAI_API_KEY)
 moralis_connector = MoralisConnector(MORALIS_API_KEY)
 bitquery_connector = BitqueryConnector(BITQUERY_API_KEY)
+dyor_parser = DYORParser(OPENAI_API_KEY)
 
 
 def prepare_token_info_promt(token_info: dict):
@@ -107,3 +109,6 @@ def get_ticker_decision(token_address: str, chain: str):
     print(message)
     print('------------------------------------------------------------------------')
     return openai.chat(message, lore)
+
+def parse_dyor_report(file_path: str):
+    return dyor_parser.extract_urls_from_docx(file_path)

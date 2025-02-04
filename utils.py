@@ -111,4 +111,5 @@ def get_ticker_decision(token_address: str, chain: str):
     return openai.chat(message, lore)
 
 def parse_dyor_report(file_path: str):
-    return dyor_parser.parse_document_with_openai(file_path)
+    #return dyor_parser.parse_document_with_openai(file_path)
+    return dyor_parser.parse_json()

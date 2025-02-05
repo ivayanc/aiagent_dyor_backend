@@ -799,8 +799,8 @@
                 
                 if (data.status === 'success') {
                     showToast('DYOR report processed successfully');
-                    // Handle the analysis display here
                     displayCurrentAnalysis(data.data);
+                    await refreshResearchedProjects();
                 } else {
                     showToast(data.message || 'Failed to process DYOR report');
                 }
@@ -813,6 +813,8 @@
             // Reset the file input and button
             fileInput.value = '';
             document.getElementById('uploadButton').disabled = true;
+            document.getElementById('fileLabel').classList.remove('has-file');
+            document.getElementById('fileName').textContent = '';
         }
 
         function handleChainChange() {
@@ -829,16 +831,19 @@
             }
         }
 
-        async function loadResearchedProjects() {
+        async function refreshResearchedProjects() {
             try {
                 const response = await fetch(`${API_BASE_URL}/tokens?page=1&per_page=6`);
                 const data = await response.json();
 
                 if (data.status === 'success') {
                     displayResearchedProjects(data.data);
+                } else {
+                    showToast('Failed to load researched projects');
                 }
             } catch (error) {
                 showToast('Failed to load researched projects');
+                console.error('Error:', error);
             }
         }
 
@@ -925,11 +930,11 @@
 
         // Initial load
         refreshRecentAnalyses();
-        loadResearchedProjects();
+        refreshResearchedProjects();
 
         // Auto-refresh every 30 seconds
         setInterval(refreshRecentAnalyses, 30000);
-        setInterval(loadResearchedProjects, 30000);
+        setInterval(refreshResearchedProjects, 30000);
     </script>
 </body>
 </html> 

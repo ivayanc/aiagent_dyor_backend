@@ -69,9 +69,9 @@ class DatabaseManager:
     async def ensure_indexes(self):
         indexes = {
             self.tokens_collection: [
+                ('last_research_time', -1),
                 ('address', 1),
                 ('chain', 1), 
-                ('last_research_time', -1)
             ],
             self.research_collection: [
                 ('token_name', 1),

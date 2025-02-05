@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException, File, UploadFile
 from utils import get_ticker_decision, parse_dyor_report
-from connectors.mongodb import MongoDBConnector, TokenAnalysis
+from connectors.mongodb import MongoDBConnector,TokenAnalysis, TokenRepository, ResearchRepository
 from typing import List
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,15 +26,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 @app.get("/token-analyses")
 async def get_token_analyses(
     page: int = Query(1, ge=1),
-    per_page: int = Query(10, ge=1, le=100)
+    per_page: int = Query(10, ge=1, le=100),
+    token: str = Query(None, description="Token address to filter by")
 ):
     skip = (page - 1) * per_page
-    total_count = await MongoDBConnector.get_total_count()
-    analyses = await MongoDBConnector.get_analyses(skip=skip, limit=per_page, sort=[("updated_at", -1)])
+    research_repo = ResearchRepository()
+    total_count = await research_repo.get_total_count("analysis")
+    analyses = await research_repo.get_researches(
+        token_address=token,
+        skip=skip, 
+        limit=per_page
+    )
     
     # Convert MongoDB documents to dict and handle ObjectId serialization
     serialized_analyses = []
@@ -55,10 +60,19 @@ async def get_token_analyses(
             "total_pages": (total_count + per_page - 1) // per_page
         }
     }
+@app.get("/token/{chain}/{token_address}")
+async def get_token(chain: str, token_address: str, include_research: bool = True):
+    token_repo = TokenRepository()
+    analysis = await token_repo.get_token(token_address=token_address, chain=chain, include_research=include_research)
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Token analysis not found")
+    return {"status": "success", "data": analysis}
+
 
 @app.get("/token-analysis/{chain}/{token_address}")
 async def get_token_analysis(chain: str, token_address: str):
-    analysis = await MongoDBConnector.get_by_address_and_chain(token_address, chain)
+    research_repo = ResearchRepository()
+    analysis = await research_repo.get_researches(token_address=token_address, chain=chain)
     if not analysis:
         raise HTTPException(status_code=404, detail="Token analysis not found")
     
@@ -70,8 +84,13 @@ async def get_token_analysis(chain: str, token_address: str):
 @app.get("/token-decision/{chain}/{token_address}")
 async def get_decision(chain: str, token_address: str):
     try:
+        research_repo = ResearchRepository()
+        token_repo = TokenRepository()
+        
         # Get existing analysis first
-        existing_analysis = await MongoDBConnector.get_by_address_and_chain(token_address, chain)
+        existing_analysis = await research_repo.get_researches(token_address=token_address, chain=chain)
+        if existing_analysis:
+            existing_analysis = existing_analysis[0]  # Get first analysis since it's sorted by latest
         
         # Get new decision
         decision = get_ticker_decision(token_address=token_address, chain=chain)
@@ -124,10 +143,7 @@ async def get_decision(chain: str, token_address: str):
             holder_change=holder_change
         )
         
-        if existing_analysis:
-            await MongoDBConnector.update_analysis(token_address, chain, analysis)
-        else:
-            await MongoDBConnector.add_analysis(analysis)
+        await research_repo.save_research(analysis)
         
         return {"status": "success", "data": analysis}
     except Exception as e:
@@ -154,4 +170,3 @@ async def analyze_dyor(file: UploadFile = File(...)):
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
-    

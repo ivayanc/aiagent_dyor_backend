@@ -112,7 +112,7 @@ class DatabaseManager:
         for research_input in token["research_inputs"]:
             research_input["_id"] = str(research_input["_id"])
         return token
-    
+
     async def get_token(self, token_address: str, chain: str, include_research: bool = False) -> Optional[Token]:
         coll = await MongoDBConnector.get_collection(self.tokens_collection)
         token = await coll.find_one({"token_address": token_address, "chain": chain})
@@ -148,7 +148,20 @@ class DatabaseManager:
             },
             upsert=True
         )
-
+    async def get_tokens(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        include_research: bool = False
+    ) -> Optional[Token]:
+        coll = await MongoDBConnector.get_collection(self.tokens_collection)
+        tokens = await coll.find().sort("last_research_time", -1).skip(skip).limit(limit).to_list(limit)
+        if include_research:
+            for token in tokens:
+                token = await self._include_researches(token, token["token_name"])
+                token = await self._include_research_input(token, token["token_name"])
+        return tokens
+        
     async def get_researches(
         self,
         token_name: Optional[str] = None,

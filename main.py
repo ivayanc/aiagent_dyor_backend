@@ -181,3 +181,35 @@ async def get_token_by_name(token_name: str,
     if not token:
         raise HTTPException(status_code=404, detail="Token not found")
     return {"status": "success", "data": Token(**token)}
+
+@app.get("/tokens")
+async def get_tokens(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+    token_name: str = Query(None, description="Token name to filter by")
+):
+    skip = (page - 1) * per_page
+    db_manager  = DatabaseManager()
+    total_count = await db_manager.get_total_count("tokens")
+    analyses = await db_manager.get_tokens(
+        skip=skip, 
+        limit=per_page
+    )
+    
+    # Convert MongoDB documents to dict and handle ObjectId serialization
+    serialized_analyses = []
+    for analysis in analyses:
+        analysis['_id'] = str(analysis['_id'])  # Convert ObjectId to string
+        # Convert price string to float and format using scientific notation
+        serialized_analyses.append(analysis)
+    
+    return {
+        "status": "success",
+        "data": serialized_analyses,
+        "pagination": {
+            "total": total_count,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total_count + per_page - 1) // per_page
+        }
+    }

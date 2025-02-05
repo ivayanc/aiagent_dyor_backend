@@ -393,6 +393,60 @@
             margin-left: 0.5rem;
             font-weight: 500;
         }
+
+        .researched-projects-container {
+            background: var(--card-color);
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin: 2rem auto;
+            max-width: 1000px;
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .project-card {
+            background: var(--background-color);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid #e2e8f0;
+        }
+
+        .project-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary-color);
+        }
+
+        .project-name {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 0.75rem;
+        }
+
+        .project-link {
+            display: inline-block;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 0.875rem;
+            padding: 0.25rem 0.75rem;
+            border: 1px solid var(--primary-color);
+            border-radius: 999px;
+            transition: all 0.2s ease;
+        }
+
+        .project-link:hover {
+            background: var(--primary-color);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -418,6 +472,11 @@
                         onclick="processDYORReport()" 
                         disabled>Analyze Report</button>
             </div>
+        </div>
+
+        <div class="researched-projects-container">
+            <h2 class="section-title">Researched Projects</h2>
+            <div class="projects-grid" id="projectsDashboard"></div>
         </div>
 
         <div id="currentAnalysis"></div>
@@ -515,6 +574,7 @@
         async function refreshRecentAnalyses() {
             try {
                 const response = await fetch(`${API_BASE_URL}/token-analyses?page=1&per_page=6`);
+                const response_tokens = await fetch(`${API_BASE_URL}/tokens?page=1&per_page=6`);
                 const data = await response.json();
 
                 if (data.status === 'success') {
@@ -769,11 +829,107 @@
             }
         }
 
+        async function loadResearchedProjects() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/tokens?page=1&per_page=6`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    displayResearchedProjects(data.data);
+                }
+            } catch (error) {
+                showToast('Failed to load researched projects');
+            }
+        }
+
+        function displayResearchedProjects(projects) {
+            const html = projects.map(project => `
+                <div class="project-card" onclick="showTokenDetails('${project.token_name}')">
+                    <div class="project-name">${project.token_name}</div>
+                    <a href="https://example.com" 
+                       target="_blank" 
+                       class="project-link"
+                       onclick="event.stopPropagation()">View Website</a>
+                </div>
+            `).join('');
+            document.getElementById('projectsDashboard').innerHTML = html;
+        }
+
+        async function showTokenDetails(tokenName) {
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_BASE_URL}/token-by-name/${encodeURIComponent(tokenName)}`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const token = data.data;
+                    const modalContent = `
+                        <h2 class="token-info">${token.token_name}</h2>
+                        
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <div class="detail-label">Chain</div>
+                                <div class="detail-value">${token.token_chain || 'N/A'}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Address</div>
+                                <div class="detail-value">${token.token_address || 'N/A'}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Last Research</div>
+                                <div class="detail-value">${new Date(token.last_research_time).toLocaleString()}</div>
+                            </div>
+                        </div>
+
+                        ${token.researches && token.researches.length > 0 ? `
+                            <div class="analysis-section">
+                                <h3>Latest Research</h3>
+                                <div class="detail-grid">
+                                    <div class="detail-item">
+                                        <div class="detail-label">Price</div>
+                                        <div class="detail-value">${token.researches[0].current_price}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Holders</div>
+                                        <div class="detail-value">${token.researches[0].current_holders_count}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Decision</div>
+                                        <div class="detail-value">
+                                            <span class="decision-badge ${getDecisionClass(token.researches[0].final_decision)}">
+                                                ${token.researches[0].final_decision}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="analysis-details">
+                                    <p><strong>Technical Analysis:</strong> ${token.researches[0].technical_analysis}</p>
+                                    <p><strong>Community Analysis:</strong> ${token.researches[0].community_analysis}</p>
+                                    <p><strong>Explanation:</strong> ${token.researches[0].explanation}</p>
+                                </div>
+                            </div>
+                        ` : '<p>No research data available</p>'}
+                    `;
+
+                    document.getElementById('modalBody').innerHTML = modalContent;
+                    document.getElementById('modalOverlay').style.display = 'flex';
+                } else {
+                    showToast('Failed to load token details');
+                }
+            } catch (error) {
+                showToast('Error loading token details');
+                console.error('Error:', error);
+            }
+            showLoading(false);
+        }
+
         // Initial load
         refreshRecentAnalyses();
+        loadResearchedProjects();
 
         // Auto-refresh every 30 seconds
         setInterval(refreshRecentAnalyses, 30000);
+        setInterval(loadResearchedProjects, 30000);
     </script>
 </body>
 </html> 

@@ -7,6 +7,10 @@ from agents.dyor_parser import DYORParser
 from connectors.moralis import MoralisConnector
 from connectors.bitquery_connector import BitqueryConnector
 from connectors.mongodb import TokenResearchInput, DatabaseManager
+from connectors.twitter_connector import TwitterConnector
+from connectors.telegram import TelegramConnector
+from connectors.github import GitHubConnector
+
 from settings import GROK_API_KEY, MORALIS_API_KEY, OPENAI_API_KEY, BITQUERY_API_KEY
 from datetime import datetime, timedelta
 
@@ -122,4 +126,28 @@ async def parse_dyor_report(file_path: str):
     )
     await db_manager.save_research_input(input_data)
     return parsed_dyor
-    
+
+
+def update_socials_from_dyor_report(dyor_report: dict):
+    platforms = dyor_report.get('social_media', {}).get('platforms', [])
+    updated_platforms = []
+    for platform in platforms:
+        platform_name = platform.get('name').lower()
+        if platform_name == 'twitter':
+            new_followers = TwitterConnector().get_user_info(platform.get('url').replace('https://x.com/', '')).get('result', {}).get('data', {}).get(
+                'user',
+            {}).get('result', {}).get('legacy', {}).get('followers_count', 0)
+        if platform_name == 'telegram':
+            new_followers = TelegramConnector().get_channel_followers(platform.get('url').replace('https://t.me/', ''))
+        updated_platforms.append({
+            'name': platform.get('name'),
+            'url': platform.get('url'),
+            'followers': new_followers
+        })
+    return updated_platforms
+
+
+def get_github_repos_info(account_name: str):
+    repos = GitHubConnector().get_github_repos_info(account_name)
+    formatted_repos = GitHubConnector().format_repo_info(repos)
+    return formatted_repos

@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import re
 from typing import Optional
 
-class TelegramScraper:
+class TelegramConnector:
     def __init__(self):
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -59,10 +59,13 @@ class TelegramScraper:
             members_element = soup.find('div', class_='tgme_page_extra')
             
             if members_element:
-                members_text = members_element.text.strip()
-                members_count = re.search(r'([\d\s]+)\s+members?', members_text)
+                element_text = members_element.text.strip()
+                members_count = re.search(r'([\d\s]+)\s+members?', element_text)
                 if members_count:
                     return int(members_count.group(1).replace(' ', ''))
+                subscribers_count = re.search(r'([\d\s]+)\s+subscribers?', element_text)
+                if subscribers_count:
+                    return int(subscribers_count.group(1).replace(' ', ''))
             
             return 0
             

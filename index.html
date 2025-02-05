@@ -47,13 +47,13 @@
             border-radius: var(--border-radius);
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             margin: -3rem auto 2rem;
-            max-width: 800px;
+            max-width: 1000px;
             position: relative;
         }
 
         .search-form {
             display: grid;
-            grid-template-columns: 1fr 2fr 1fr;
+            grid-template-columns: 1fr 3fr 1.5fr 1fr;
             gap: 1rem;
         }
 
@@ -402,17 +402,6 @@
     </div>
 
     <div class="container">
-        <div class="search-container">
-            <div class="search-form">
-                <select id="chain">
-                    <option value="eth">Ethereum</option>
-                    <option value="base">Base</option>
-                </select>
-                <input type="text" id="tokenAddress" placeholder="Enter token address (0x...)">
-                <button onclick="analyzeToken()">Analyze Token</button>
-            </div>
-        </div>
-
         <div class="search-container">
             <div class="search-form" style="grid-template-columns: 3fr 1fr;">
                 <div class="file-input-container">
@@ -764,6 +753,20 @@
             // Reset the file input and button
             fileInput.value = '';
             document.getElementById('uploadButton').disabled = true;
+        }
+
+        function handleChainChange() {
+            const chainSelect = document.getElementById('chain');
+            const tokenAddressInput = document.getElementById('tokenAddress');
+            
+            if (chainSelect.value === 'custom') {
+                tokenAddressInput.value = '';
+                tokenAddressInput.readOnly = true;
+                tokenAddressInput.style.backgroundColor = '#f3f4f6';
+            } else {
+                tokenAddressInput.readOnly = false;
+                tokenAddressInput.style.backgroundColor = '';
+            }
         }
 
         // Initial load

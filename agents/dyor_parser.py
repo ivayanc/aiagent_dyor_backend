@@ -20,7 +20,16 @@ DYOR_JSON_STRUCTURE = {
     "source": "",
     "date_created": "",
     "author": "",
-    "version": ""
+    "version": "",
+  },
+  "general_info": {
+    "project_name": "",
+    "research_date": "",
+    "token_info": {
+      "token_chain": "",
+      "token_address": "",
+    },
+    "github_url": "",
   },
   "summary": "",
   "sections": [
@@ -87,7 +96,7 @@ class DYORParser(OpenAI):
                     Parse the given text and return only the requested JSON structure with relevant URLs and data.
                     If a field is not found, use null instead of leaving it empty.
                     
-                    You can use the following JSON structure:
+                    Use the following JSON structure:
                     {json.dumps(DYOR_JSON_STRUCTURE, indent=1)}"""
 
     def __init__(self, api_key: str):
@@ -111,28 +120,36 @@ class DYORParser(OpenAI):
         """
         doc = Document(file_path)
         processed_paragraphs = []
+        logger.error(f"Processing {len(doc.paragraphs)} paragraphs")
         for paragraph in doc.paragraphs:
             text = paragraph.text
-            for hyperlink in paragraph.hyperlinks:
-                link_text = hyperlink.text
-                url = hyperlink.url
-                if link_text in text:
-                    start = text.find(link_text)
-                    if start >= 0:
-                        before = text[:start]
-                        after = text[start + len(link_text):]
-                        text = before + f"{link_text}({url})" + after
-                else:
-                    text = text + f"{link_text}({url})"
-            processed_paragraphs.append(text)
-                
+            if len(paragraph.hyperlinks) > 0:
+              logger.error(f"Found {len(paragraph.hyperlinks)} hyperlinks")
+              for hyperlink in paragraph.hyperlinks:
+                  link_text = hyperlink.text
+                  url = hyperlink.url
+                  if link_text in text:
+                      start = text.find(link_text)
+                      if start >= 0:
+                          before = text[:start]
+                          after = text[start + len(link_text):]
+                          text = before + f"{link_text}({url})" + after
+                  else:
+                      text = text + f"{link_text}({url})"
+              processed_paragraphs.append(text)
+                  
         return "\n".join(processed_paragraphs)
 
     def parse_document_with_openai(self, file_path: str) -> str:
+        from pprint import pprint
         parsed_text = self.parse_document(file_path)
         prompt = (f"Parse the following DOCX document and return only the requested JSON structure with relevant URLs and data. "
                   f"If a field is not found, use null instead of leaving it empty.\n\n{parsed_text}")
-        return self.chat(prompt)
+        res = self.chat(prompt)
+        
+        pprint(res)
+        json_res = self.parse_json(res)
+        return json_res
 
     def parse_json(self, json_text = None):
         if not json_text:

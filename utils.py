@@ -6,7 +6,7 @@ from agents.dyor_parser import DYORParser
 
 from connectors.moralis import MoralisConnector
 from connectors.bitquery_connector import BitqueryConnector
-
+from connectors.mongodb import TokenResearchInput, DatabaseManager
 from settings import GROK_API_KEY, MORALIS_API_KEY, OPENAI_API_KEY, BITQUERY_API_KEY
 from datetime import datetime, timedelta
 
@@ -110,6 +110,16 @@ def get_ticker_decision(token_address: str, chain: str):
     print('------------------------------------------------------------------------')
     return openai.chat(message, lore)
 
-def parse_dyor_report(file_path: str):
-    #return dyor_parser.parse_document_with_openai(file_path)
-    return dyor_parser.parse_json()
+async def parse_dyor_report(file_path: str):
+    parsed_dyor = dyor_parser.parse_document_with_openai(file_path)
+    db_manager = DatabaseManager()
+    input_data = TokenResearchInput(
+        token_name=parsed_dyor['general_info']['project_name'],
+        token_address=parsed_dyor['general_info']['token_info']['token_address'],
+        token_chain=parsed_dyor['general_info']['token_info']['token_chain'],
+        data=parsed_dyor,
+        metadata=None
+    )
+    await db_manager.save_research_input(input_data)
+    return parsed_dyor
+    

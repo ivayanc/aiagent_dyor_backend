@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException, File, UploadFile
 from utils import get_ticker_decision, parse_dyor_report
-from connectors.mongodb import MongoDBConnector,TokenAnalysis, TokenRepository, ResearchRepository
+from connectors.mongodb import MongoDBConnector,TokenAnalysis, DatabaseManager, Token
 from typing import List
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,9 +33,9 @@ async def get_token_analyses(
     token: str = Query(None, description="Token address to filter by")
 ):
     skip = (page - 1) * per_page
-    research_repo = ResearchRepository()
-    total_count = await research_repo.get_total_count("analysis")
-    analyses = await research_repo.get_researches(
+    db_manager  = DatabaseManager()
+    total_count = await db_manager.get_total_count("analysis")
+    analyses = await db_manager.get_researches(
         token_address=token,
         skip=skip, 
         limit=per_page
@@ -62,8 +62,8 @@ async def get_token_analyses(
     }
 @app.get("/token/{chain}/{token_address}")
 async def get_token(chain: str, token_address: str, include_research: bool = True):
-    token_repo = TokenRepository()
-    analysis = await token_repo.get_token(token_address=token_address, chain=chain, include_research=include_research)
+    db_manager = DatabaseManager()
+    analysis = await db_manager.get_token(token_address=token_address, chain=chain, include_research=include_research)
     if not analysis:
         raise HTTPException(status_code=404, detail="Token analysis not found")
     return {"status": "success", "data": analysis}
@@ -71,8 +71,8 @@ async def get_token(chain: str, token_address: str, include_research: bool = Tru
 
 @app.get("/token-analysis/{chain}/{token_address}")
 async def get_token_analysis(chain: str, token_address: str):
-    research_repo = ResearchRepository()
-    analysis = await research_repo.get_researches(token_address=token_address, chain=chain)
+    db_manager = DatabaseManager()
+    analysis = await db_manager.get_researches(token_address=token_address, chain=chain)
     if not analysis:
         raise HTTPException(status_code=404, detail="Token analysis not found")
     
@@ -84,11 +84,10 @@ async def get_token_analysis(chain: str, token_address: str):
 @app.get("/token-decision/{chain}/{token_address}")
 async def get_decision(chain: str, token_address: str):
     try:
-        research_repo = ResearchRepository()
-        token_repo = TokenRepository()
+        db_manager = DatabaseManager()
         
         # Get existing analysis first
-        existing_analysis = await research_repo.get_researches(token_address=token_address, chain=chain)
+        existing_analysis = await db_manager.get_researches(token_address=token_address, chain=chain)
         if existing_analysis:
             existing_analysis = existing_analysis[0]  # Get first analysis since it's sorted by latest
         
@@ -151,22 +150,34 @@ async def get_decision(chain: str, token_address: str):
 
 @app.post("/analyze-dyor")
 async def analyze_dyor(file: UploadFile = File(...)):
-    try:
-        # Verify file extension
-        if not file.filename.endswith('.docx'):
-            return {"status": "error", "message": "Invalid file format. Please upload a .docx file"}
+    # try:
+    # Verify file extension
+    if not file.filename.endswith('.docx'):
+        return {"status": "error", "message": "Invalid file format. Please upload a .docx file"}
 
-        # Save uploaded file temporarily
-        temp_file_path = f"temp_{file.filename}"
-        with open(temp_file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
+    # Save uploaded file temporarily
+    temp_file_path = f"temp_{file.filename}"
+    with open(temp_file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
 
-        result = parse_dyor_report(temp_file_path)
-        # Clean up temp file
-        os.remove(temp_file_path)
-        
-        return result
+    result = await parse_dyor_report(temp_file_path)
+    # Clean up temp file
+    os.remove(temp_file_path)
+    
+    return result
 
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    # except Exception as e:
+    #     return {"status": "error", "message": str(e)}
+
+
+@app.get("/token-by-name/{token_name}")
+async def get_token_by_name(token_name: str,
+    chain: str = Query(None, description="Chain to filter by"),
+    include_researches: bool = Query(True, description="Include research in response")
+):
+    db_manager = DatabaseManager()
+    token = await db_manager.get_token_by_name(token_name=token_name, chain=chain)
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found")
+    return {"status": "success", "data": Token(**token)}

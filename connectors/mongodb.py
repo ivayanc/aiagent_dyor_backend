@@ -124,6 +124,7 @@ class DatabaseManager:
                 "_id": {"$toString": "$_id"},
                 "token_name": 1,
                 "token_address": 1,
+                "token_id": 1,
                 "data": 1,
                 "created_at": 1
             }}
@@ -140,6 +141,7 @@ class DatabaseManager:
                 "token_address": 1,
                 "token_chain": 1, 
                 "data": 1,
+                "token_id": 1,
                 "created_at": 1
             }}
         ]

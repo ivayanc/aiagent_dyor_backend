@@ -122,6 +122,8 @@ class GitHubConnector:
             result.append(
                 f"Repository: {repo['full_name']}\n"
                 f"Last commit: {repo['last_commit_date'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"Stars: {repo['stars']}\n"
+                f"Language: {repo['language'] or 'Not specified'}\n"
                 f"Description: {repo['description'] or 'No description'}\n"
                 f"{'=' * 50}"
             )

@@ -1,10 +1,9 @@
 from fastapi import FastAPI, Query, HTTPException, File, UploadFile
-from utils import get_ticker_decision, parse_dyor_report
-from connectors.mongodb import MongoDBConnector,TokenAnalysis, DatabaseManager, Token
+from utils import get_ticker_decision, parse_dyor_report, update_dyor_report
+from connectors.mongodb import MongoDBConnector,TokenAnalysis, DatabaseManager, Token, TokenResearchInput
 from typing import List
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-import docx
 import os
 from datetime import datetime
 
@@ -189,18 +188,37 @@ async def get_tokens(
     token_name: str = Query(None, description="Token name to filter by")
 ):
     skip = (page - 1) * per_page
-    db_manager  = DatabaseManager()
+    db_manager = DatabaseManager()
     total_count = await db_manager.get_total_count("tokens")
+    
     analyses = await db_manager.get_tokens(
         skip=skip, 
-        limit=per_page
+        limit=per_page,
+        include_research=True
     )
     
     # Convert MongoDB documents to dict and handle ObjectId serialization
     serialized_analyses = []
     for analysis in analyses:
-        analysis['_id'] = str(analysis['_id'])  # Convert ObjectId to string
-        # Convert price string to float and format using scientific notation
+        analysis['_id'] = str(analysis['_id'])
+        
+        # Extract the latest research input data if available
+        if analysis.get('research_inputs') and len(analysis['research_inputs']) > 0:
+            latest_input = analysis['research_inputs'][0]
+            analysis['latest_data'] = latest_input.get('data', {})
+        else:
+            analysis['latest_data'] = {}
+            
+        # Extract the latest research if available
+        if analysis.get('researches') and len(analysis['researches']) > 0:
+            analysis['latest_research'] = analysis['researches'][0]
+        else:
+            analysis['latest_research'] = {}
+            
+        # Remove the full lists since we only need the latest entries
+        analysis.pop('research_inputs', None)
+        analysis.pop('researches', None)
+        
         serialized_analyses.append(analysis)
     
     return {
@@ -213,3 +231,33 @@ async def get_tokens(
             "total_pages": (total_count + per_page - 1) // per_page
         }
     }
+
+@app.get("/update-report-by-name/{token_name}")
+async def update_report_by_name(
+    token_name: str,
+    chain: str = Query(None, description="Chain to filter by")
+):
+    try:
+        db_manager = DatabaseManager()
+        
+        # Get token and research inputs
+        token_data = await db_manager.get_token_by_name(token_name=token_name, chain=chain)
+        if not token_data:
+            raise HTTPException(status_code=404, detail="Token not found")
+            
+        # Convert to Token model
+        token = Token(**token_data)
+        # Check if there are any research inputs
+        if not token.research_inputs or len(token.research_inputs) == 0:
+            raise HTTPException(status_code=404, detail="No research input data found for this token")
+            
+        # Get the latest research input and convert to TokenResearchInput model
+        latest_input = TokenResearchInput(**token.research_inputs[0])
+        data = update_dyor_report(dyor_report=token.research_inputs[0].get('data'), token_address=token.token_address, token_chain=token.token_chain)
+        return {
+            "status": "success", 
+            "data": data
+        }
+        
+    except HTTPException as he:
+        raise he

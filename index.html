@@ -447,6 +447,130 @@
             background: var(--primary-color);
             color: white;
         }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .team-member {
+            background: var(--background-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid #e2e8f0;
+        }
+
+        .team-member h4 {
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        .team-member .role {
+            color: var(--primary-color);
+            font-size: 0.9em;
+            margin-top: 0.25rem;
+        }
+
+        .team-member .bio {
+            margin: 0.5rem 0;
+            font-size: 0.9em;
+            color: #64748b;
+        }
+
+        .social-links {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .social-link {
+            font-size: 0.8em;
+            color: var(--primary-color);
+            text-decoration: none;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .social-link:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .social-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .social-item {
+            background: var(--background-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .platform-name {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .followers {
+            color: #64748b;
+            font-size: 0.9em;
+            margin: 0.5rem 0;
+        }
+
+        .investments-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .investment-item {
+            background: var(--background-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid #e2e8f0;
+        }
+
+        .round-name {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .investment-details {
+            font-size: 0.9em;
+            color: #64748b;
+        }
+
+        .references-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .reference-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            padding: 0.5rem;
+            background: var(--background-color);
+            border-radius: var(--border-radius);
+            transition: all 0.2s ease;
+        }
+
+        .reference-link:hover {
+            background: var(--primary-color);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -868,6 +992,8 @@
                 
                 if (data.status === 'success') {
                     const token = data.data;
+                    const researchInput = token.research_inputs[0]?.data || null;
+                    
                     const modalContent = `
                         <h2 class="token-info">${token.token_name}</h2>
                         
@@ -884,7 +1010,92 @@
                                 <div class="detail-label">Last Research</div>
                                 <div class="detail-value">${new Date(token.last_research_time).toLocaleString()}</div>
                             </div>
+                            ${researchInput?.general_info?.github_url ? `
+                                <div class="detail-item">
+                                    <div class="detail-label">GitHub</div>
+                                    <div class="detail-value">
+                                        <a href="${researchInput.general_info.github_url}" target="_blank" class="project-link">View Repository</a>
+                                    </div>
+                                </div>
+                            ` : ''}
                         </div>
+
+                        ${researchInput ? `
+                            ${researchInput.summary ? `
+                                <div class="analysis-section">
+                                    <h3>Project Summary</h3>
+                                    <p>${researchInput.summary}</p>
+                                </div>
+                            ` : ''}
+
+                            ${researchInput.team && researchInput.team.length > 0 ? `
+                                <div class="analysis-section">
+                                    <h3>Team Members</h3>
+                                    <div class="team-grid">
+                                        ${researchInput.team.map(member => `
+                                            <div class="team-member">
+                                                <h4>${member.name}</h4>
+                                                <div class="role">${member.role}</div>
+                                                ${member.bio ? `<p class="bio">${member.bio}</p>` : ''}
+                                                <div class="social-links">
+                                                    ${member.contacts.linkedin ? `
+                                                        <a href="${member.contacts.linkedin}" target="_blank" class="social-link">LinkedIn</a>
+                                                    ` : ''}
+                                                    ${member.contacts.twitter ? `
+                                                        <a href="${member.contacts.twitter}" target="_blank" class="social-link">Twitter</a>
+                                                    ` : ''}
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            ${researchInput.social_media?.platforms && researchInput.social_media.platforms.length > 0 ? `
+                                <div class="analysis-section">
+                                    <h3>Social Media</h3>
+                                    <div class="social-grid">
+                                        ${researchInput.social_media.platforms.map(platform => `
+                                            <div class="social-item">
+                                                <div class="platform-name">${platform.name}</div>
+                                                <div class="followers">${platform.followers} followers</div>
+                                                <a href="${platform.url}" target="_blank" class="social-link">Visit ${platform.name}</a>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            ${researchInput.investments && researchInput.investments.length > 0 ? `
+                                <div class="analysis-section">
+                                    <h3>Investment Rounds</h3>
+                                    <div class="investments-grid">
+                                        ${researchInput.investments.map(investment => `
+                                            <div class="investment-item">
+                                                <div class="round-name">${investment.round_name}</div>
+                                                <div class="investment-details">
+                                                    <div>Date: ${investment.date || 'N/A'}</div>
+                                                    <div>Amount Raised: ${investment.amount_raised || 'N/A'}</div>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            ${researchInput.additional_info?.references && researchInput.additional_info.references.length > 0 ? `
+                                <div class="analysis-section">
+                                    <h3>Additional Resources</h3>
+                                    <div class="references-list">
+                                        ${researchInput.additional_info.references.map(ref => `
+                                            <a href="${ref.url}" target="_blank" class="reference-link">
+                                                ${ref.description}
+                                            </a>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        ` : '<p>No detailed research data available</p>'}
 
                         ${token.researches && token.researches.length > 0 ? `
                             <div class="analysis-section">
@@ -907,13 +1118,8 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="analysis-details">
-                                    <p><strong>Technical Analysis:</strong> ${token.researches[0].technical_analysis}</p>
-                                    <p><strong>Community Analysis:</strong> ${token.researches[0].community_analysis}</p>
-                                    <p><strong>Explanation:</strong> ${token.researches[0].explanation}</p>
-                                </div>
                             </div>
-                        ` : '<p>No research data available</p>'}
+                        ` : ''}
                     `;
 
                     document.getElementById('modalBody').innerHTML = modalContent;

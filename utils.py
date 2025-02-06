@@ -1,3 +1,5 @@
+import json
+
 from pprint import pprint
 
 from agents.grok import GrokAI
@@ -10,6 +12,7 @@ from connectors.mongodb import TokenResearchInput, DatabaseManager
 from connectors.twitter_connector import TwitterConnector
 from connectors.telegram import TelegramConnector
 from connectors.github import GitHubConnector
+from connectors.discord import DiscordConnector
 
 from settings import GROK_API_KEY, MORALIS_API_KEY, OPENAI_API_KEY, BITQUERY_API_KEY
 from datetime import datetime, timedelta
@@ -68,7 +71,6 @@ def get_ticker_info_analysis(prompt: str):
     Thirdly you should take a look at max price and max price date.
     Fourthly you should take a look at total supply.
     Fifthly you should take a look at token name and symbol.
-    Your response always should contain at the end return confident in procents about confidence in future of that token "Confidence in bright future of that token: your exepctection of confidence in bright future of that token in % ".
     """
     return openai.chat(prompt, lore)
 
@@ -128,17 +130,18 @@ async def parse_dyor_report(file_path: str):
     return parsed_dyor
 
 
-def update_socials_from_dyor_report(dyor_report: dict):
-    platforms = dyor_report.get('social_media', {}).get('platforms', [])
+def update_socials_from_dyor_report(platforms: list):
     updated_platforms = []
     for platform in platforms:
         platform_name = platform.get('name').lower()
         if platform_name == 'twitter':
-            new_followers = TwitterConnector().get_user_info(platform.get('url').replace('https://x.com/', '')).get('result', {}).get('data', {}).get(
+            new_followers = TwitterConnector().get_user_info(platform.get('url').replace('https://x.com/', '').replace('https://twitter.com/', '')).get('result', {}).get('data', {}).get(
                 'user',
             {}).get('result', {}).get('legacy', {}).get('followers_count', 0)
         if platform_name == 'telegram':
             new_followers = TelegramConnector().get_channel_followers(platform.get('url').replace('https://t.me/', ''))
+        if platform_name == 'discord':
+            new_followers = DiscordConnector().get_followers(platform.get('url').replace('https://discord.gg/', '').replace('https://discord.com/invite/', ''))
         updated_platforms.append({
             'name': platform.get('name'),
             'url': platform.get('url'),
@@ -151,3 +154,69 @@ def get_github_repos_info(account_name: str):
     repos = GitHubConnector().get_github_repos_info(account_name)
     formatted_repos = GitHubConnector().format_repo_info(repos)
     return formatted_repos
+
+
+def convert_token_chain(token_chain: str):
+    token_chain = token_chain.lower()
+    if token_chain == 'base':
+        return 'base'
+    if token_chain == 'ethereum':
+        return 'eth'
+    return token_chain
+
+def update_dyor_report(dyor_report: dict, token_address: str, token_chain: str):
+    if token_address and token_chain:
+        token_info = get_token_info(token_address=token_address, chain=convert_token_chain(token_chain))
+        ticker_analytic = get_ticker_info_analysis(prepare_token_info_promt(token_info))
+    else:
+        ticker_analytic = 'No token info available.'
+    github_account = dyor_report.get('general_info', {}).get('github_url', '').replace('https://github.com/', '')
+    updated_development_status, repos_info = update_development_status(github_account)
+    platforms = dyor_report.get('social_media', {}).get('platforms', [])
+    updated_platforms = update_socials_from_dyor_report(platforms)
+    final_conclusion = make_final_conclusion(dyor_report, updated_development_status, updated_platforms, ticker_analytic)
+    return {
+        'updated_development_status': updated_development_status,
+        'updated_platforms': updated_platforms,
+        'final_conclusion': final_conclusion,
+        'ticker_analytic': ticker_analytic,
+        'token_info': token_info,
+        'repos_info': repos_info
+    }
+
+def make_final_conclusion(dyor_report: dict, updated_development_status: str, updated_platforms: list, ticker_analytic: str):
+    lore = f"""
+    You are a DYOR (Do Your Own Research) report expert that builds reports for crypto projects.
+    You are tasked to make new Conclusion section for DYOR report.
+    You'll be provided with previous report in json format and updated development status and updated platforms and ticker analytic if token is realised already.
+    You should make new Conclusion section based on provided information.
+    You must return result as text always
+    """
+    message = f"""
+    Previous report:
+    {json.dumps(dyor_report, indent=4)}
+    Updated development status:
+    {updated_development_status}
+    Updated platforms:
+    {json.dumps(updated_platforms, indent=4)}
+    Ticker analytic:
+    {ticker_analytic}
+    """
+    return openai.chat(message, lore)
+
+
+def update_development_status(github_account):
+    repos_info = get_github_repos_info(github_account)
+    lore = f"""
+    You are a DYOR (Do Your Own Research) report expert that builds reports for crypto projects.
+    You are specialising on analyzing github repos of projects.
+    You are tasked to analyze github repos of projects and provide information about development status of the project in no more than 5 sentences.
+    You'll be provided with list of github repos and information about them that includes:
+    - repo name
+    - repo description
+    - repo last commit date
+    - repo programming language
+    - repo stars
+    Current date: {datetime.now().strftime('%Y-%m-%d')}
+    """
+    return openai.chat(repos_info, lore), repos_info

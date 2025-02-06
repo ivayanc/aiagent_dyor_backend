@@ -155,7 +155,10 @@ class DatabaseManager:
         include_research: bool = False
     ) -> Optional[Token]:
         coll = await MongoDBConnector.get_collection(self.tokens_collection)
-        tokens = await coll.find().sort("last_research_time", -1).skip(skip).limit(limit).to_list(limit)
+        tokens = await coll.find().sort([
+            ("last_research_time", -1),
+            ("_id", -1)
+        ]).skip(skip).limit(limit).to_list(limit)
         if include_research:
             for token in tokens:
                 token = await self._include_researches(token, token["token_name"])
@@ -188,7 +191,10 @@ class DatabaseManager:
             if end_date:
                 query["research_time"]["$lte"] = end_date
 
-        return await coll.find(query).sort("research_time", -1).skip(skip).limit(limit).to_list(limit)
+        return await coll.find(query).sort([
+            ("research_time", -1),
+            ("_id", -1)
+        ]).skip(skip).limit(limit).to_list(limit)
 
     async def get_research_inputs(
         self,
@@ -234,3 +240,4 @@ class DatabaseManager:
             },
             upsert=True
         )
+        return research_input

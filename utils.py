@@ -126,7 +126,11 @@ async def parse_dyor_report(file_path: str):
         data=parsed_dyor,
         metadata=None
     )
-    await db_manager.save_research_input(input_data)
+    uploaded_report = await db_manager.save_research_input(input_data)
+    data = update_dyor_report(dyor_report=parsed_dyor, 
+        token_address=parsed_dyor.get('general_info').get('token_info').get('token_address'), 
+        token_chain=parsed_dyor.get('general_info').get('token_info').get('token_chain')
+    )
     return parsed_dyor
 
 
@@ -164,7 +168,9 @@ def convert_token_chain(token_chain: str):
         return 'eth'
     return token_chain
 
-def update_dyor_report(dyor_report: dict, token_address: str, token_chain: str):
+def update_dyor_report(dyor_report: dict, token_address: str = None, token_chain: str = None):
+    token_info = None
+    token_analytic = None
     if token_address and token_chain:
         token_info = get_token_info(token_address=token_address, chain=convert_token_chain(token_chain))
         ticker_analytic = get_ticker_info_analysis(prepare_token_info_promt(token_info))

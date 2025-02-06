@@ -8,7 +8,7 @@ from agents.dyor_parser import DYORParser
 
 from connectors.moralis import MoralisConnector
 from connectors.bitquery_connector import BitqueryConnector
-from connectors.mongodb import TokenResearchInput, DatabaseManager
+from connectors.mongodb import TokenResearchInput, DatabaseManager, TokenAIReport
 from connectors.twitter_connector import TwitterConnector
 from connectors.telegram import TelegramConnector
 from connectors.github import GitHubConnector
@@ -127,7 +127,7 @@ async def parse_dyor_report(file_path: str):
         metadata=None
     )
     uploaded_report = await db_manager.save_research_input(input_data)
-    data = update_dyor_report(dyor_report=parsed_dyor, 
+    data = await update_dyor_report(dyor_report=parsed_dyor, 
         token_address=parsed_dyor.get('general_info').get('token_info').get('token_address'), 
         token_chain=parsed_dyor.get('general_info').get('token_info').get('token_chain')
     )
@@ -138,14 +138,16 @@ def update_socials_from_dyor_report(platforms: list):
     updated_platforms = []
     for platform in platforms:
         platform_name = platform.get('name').lower()
-        if platform_name == 'twitter':
+        if platform_name.lower() == 'twitter':
             new_followers = TwitterConnector().get_user_info(platform.get('url').replace('https://x.com/', '').replace('https://twitter.com/', '')).get('result', {}).get('data', {}).get(
                 'user',
             {}).get('result', {}).get('legacy', {}).get('followers_count', 0)
-        if platform_name == 'telegram':
+        if platform_name.lower() == 'telegram':
             new_followers = TelegramConnector().get_channel_followers(platform.get('url').replace('https://t.me/', ''))
-        if platform_name == 'discord':
+        if platform_name.lower() == 'discord':
             new_followers = DiscordConnector().get_followers(platform.get('url').replace('https://discord.gg/', '').replace('https://discord.com/invite/', ''))
+        else:
+            new_followers = 0
         updated_platforms.append({
             'name': platform.get('name'),
             'url': platform.get('url'),
@@ -168,7 +170,7 @@ def convert_token_chain(token_chain: str):
         return 'eth'
     return token_chain
 
-def update_dyor_report(dyor_report: dict, token_address: str = None, token_chain: str = None):
+async def update_dyor_report(dyor_report: dict, token_address: str = None, token_chain: str = None):
     token_info = None
     token_analytic = None
     if token_address and token_chain:
@@ -180,9 +182,9 @@ def update_dyor_report(dyor_report: dict, token_address: str = None, token_chain
     updated_development_status, repos_info = update_development_status(github_account)
     platforms = dyor_report.get('social_media', {}).get('platforms', [])
     updated_platforms = update_socials_from_dyor_report(platforms)
-    social_conclusion = make_social_conclusion(dyor_report, updated_development_status, updated_platforms, ticker_analytic)
     final_conclusion = make_final_conclusion(dyor_report, updated_development_status, updated_platforms, ticker_analytic)
-    return {
+    social_conclusion = '{"TODO": "TODO"}'
+    data = {
         'updated_development_status': updated_development_status,
         'updated_platforms': updated_platforms,
         'social_conclusion': json.loads(social_conclusion),
@@ -191,6 +193,11 @@ def update_dyor_report(dyor_report: dict, token_address: str = None, token_chain
         'token_info': token_info,
         'repos_info': repos_info
     }
+    db_manager = DatabaseManager()
+    ai_report = TokenAIReport(token_name=dyor_report.get('general_info', {}).get('project_name'), 
+                              data=data)
+    await db_manager.save_ai_report(ai_report)
+    return data
 
 
 # USE IF YOU NEED TO MAKE SOCIAL CONCLUSION

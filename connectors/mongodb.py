@@ -29,13 +29,20 @@ class TokenResearchInput(BaseModel):
     data: Dict[str, Any]
     metadata: Optional[Dict[str, Any]] = None
 
+class TokenAIReport(BaseModel):
+    token_name: str
+    token_address: Optional[str] = None
+    token_chain: Optional[str] = None
+    research_time: datetime = datetime.utcnow()
+    data: Dict[str, Any]
+
 class Token(BaseModel):
     token_name: str
     token_address: Optional[str] = None
     token_chain: Optional[str] = None
     last_research_time: datetime = datetime.utcnow()
     metadata: Optional[Dict[str, Any]] = None
-    researches: Optional[List[Any]] = None
+    ai_reports: Optional[List[Any]] = None
     research_inputs: Optional[List[Any]] = None
     created_at: datetime = datetime.utcnow()
     updated_at: datetime = datetime.utcnow()
@@ -65,7 +72,8 @@ class DatabaseManager:
         self.tokens_collection = "tokens"
         self.research_collection = "analysis"
         self.research_input_collection = "research_input"
-        
+        self.ai_report_collection = "ai_reports"
+
     async def ensure_indexes(self):
         indexes = {
             self.tokens_collection: [
@@ -99,10 +107,12 @@ class DatabaseManager:
         coll = await MongoDBConnector.get_collection(self.tokens_collection)
         await coll.insert_one(token.dict())
 
-    async def _include_researches(self, token: dict, token_name: str) -> dict:
+    async def _include_ai_reports(self, token: dict, token_name: str) -> dict:
         if not token:
             return None
-        token["researches"] = await self.get_researches(token_name=token_name)
+        token["ai_reports"] = await self.get_ai_reports(token_name=token_name)
+        for ai_report in token["ai_reports"]:
+            ai_report["_id"] = str(ai_report["_id"])
         return token
 
     async def _include_research_input(self, token: dict, token_name: str) -> dict:
@@ -117,7 +127,7 @@ class DatabaseManager:
         coll = await MongoDBConnector.get_collection(self.tokens_collection)
         token = await coll.find_one({"token_address": token_address, "chain": chain})
         if include_research:
-            token = await self._include_researches(token, token["token_name"])
+            token = await self._include_ai_reports(token, token["token_name"])
             token = await self._include_research_input(token, token["token_name"])
         return token
 
@@ -125,7 +135,7 @@ class DatabaseManager:
         coll = await MongoDBConnector.get_collection(self.tokens_collection)
         token = await coll.find_one({"token_name": token_name, "chain": chain})
         if include_research:
-            token = await self._include_researches(token, token_name)
+            token = await self._include_ai_reports(token, token_name)
             token = await self._include_research_input(token, token_name)
         return token
 
@@ -161,10 +171,11 @@ class DatabaseManager:
         ]).skip(skip).limit(limit).to_list(limit)
         if include_research:
             for token in tokens:
-                token = await self._include_researches(token, token["token_name"])
+                token = await self._include_ai_reports(token, token["token_name"])
                 token = await self._include_research_input(token, token["token_name"])
         return tokens
         
+    # DEPRECATED
     async def get_researches(
         self,
         token_name: Optional[str] = None,
@@ -196,6 +207,33 @@ class DatabaseManager:
             ("_id", -1)
         ]).skip(skip).limit(limit).to_list(limit)
 
+    async def get_ai_reports(
+        self,
+        token_name: Optional[str] = None,
+        token_address: Optional[str] = None,
+        chain: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
+        coll = await MongoDBConnector.get_collection(self.ai_report_collection)
+        
+        query = {}
+        if token_name:
+            query["token_name"] = token_name
+        if token_address:
+            query["token_address"] = token_address 
+        if chain:
+            query["token_chain"] = chain
+        if start_date or end_date:
+            query["research_time"] = {}
+            if start_date:
+                query["research_time"]["$gte"] = start_date
+            if end_date:
+                query["research_time"]["$lte"] = end_date
+        return await coll.find(query).sort("research_time", -1).skip(skip).limit(limit).to_list(limit)
+    
     async def get_research_inputs(
         self,
         token_name: Optional[str] = None,
@@ -241,3 +279,7 @@ class DatabaseManager:
             upsert=True
         )
         return research_input
+
+    async def save_ai_report(self, ai_report: TokenAIReport) -> None:
+        coll = await MongoDBConnector.get_collection(self.ai_report_collection)
+        await coll.insert_one(ai_report.dict())

@@ -253,7 +253,7 @@ async def update_report_by_name(
             
         # Get the latest research input and convert to TokenResearchInput model
         latest_input = TokenResearchInput(**token.research_inputs[0])
-        data = update_dyor_report(dyor_report=token.research_inputs[0].get('data'), token_address=token.token_address, token_chain=token.token_chain)
+        data = await update_dyor_report(dyor_report=token.research_inputs[0].get('data'), token_address=token.token_address, token_chain=token.token_chain)
         return {
             "status": "success", 
             "data": data

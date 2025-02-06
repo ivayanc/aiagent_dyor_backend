@@ -604,11 +604,6 @@
         </div>
 
         <div id="currentAnalysis"></div>
-
-        <div id="recentAnalyses">
-            <h2 class="section-title">Recent Analyses</h2>
-            <div class="dashboard" id="analysesDashboard"></div>
-        </div>
     </div>
 
     <div class="loading-overlay" id="loadingOverlay">
@@ -697,15 +692,10 @@
 
         async function refreshRecentAnalyses() {
             try {
-                const response = await fetch(`${API_BASE_URL}/token-analyses?page=1&per_page=6`);
                 const response_tokens = await fetch(`${API_BASE_URL}/tokens?page=1&per_page=6`);
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    displayRecentAnalyses(data.data);
-                }
+                const data = await response_tokens.json();
             } catch (error) {
-                showToast('Failed to load recent analyses');
+                showToast('Failed to load data');
             }
         }
 
@@ -723,42 +713,6 @@
                 'base': 'base'
             };
             return chainClasses[chain] || '';
-        }
-
-        function displayRecentAnalyses(analyses) {
-            const html = analyses.map(analysis => {
-                const decisionClass = getDecisionClass(analysis.final_decision);
-                const chainName = getChainDisplay(analysis.token_chain);
-                const chainClass = getChainClass(analysis.token_chain);
-                return `
-                    <div class="analysis-card" onclick="showAnalysisDetails(${JSON.stringify(analysis).replace(/"/g, '&quot;')})">
-                        <div class="card-header">
-                            <div class="token-info">${analysis.token_name}</div>
-                            <span class="chain-badge ${chainClass}">${chainName}</span>
-                        </div>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <div class="stat-label">Price</div>
-                                <div class="stat-value">
-                                    ${analysis.current_price}
-                                    ${analysis.price_change ? `<span class="change-badge ${analysis.price_change.startsWith('+') ? 'positive' : 'negative'}">${analysis.price_change}</span>` : ''}
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-label">Holders</div>
-                                <div class="stat-value">
-                                    ${analysis.current_holders_count}
-                                    ${analysis.holder_change ? `<span class="change-badge ${analysis.holder_change.startsWith('+') ? 'positive' : 'negative'}">${analysis.holder_change}</span>` : ''}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="decision">
-                            <span class="decision-badge ${decisionClass}">${analysis.final_decision}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            document.getElementById('analysesDashboard').innerHTML = html;
         }
 
         function getDecisionClass(decision) {
@@ -869,7 +823,6 @@
                 const data = await response.json();
                 if (data.status === 'success') {
                     displayCurrentAnalysis(data.data);
-                    await refreshRecentAnalyses();
                     showToast('Report regenerated successfully');
                 } else {
                     showToast(data.message || 'Failed to regenerate report');
@@ -1135,11 +1088,9 @@
         }
 
         // Initial load
-        refreshRecentAnalyses();
         refreshResearchedProjects();
 
         // Auto-refresh every 30 seconds
-        setInterval(refreshRecentAnalyses, 30000);
         setInterval(refreshResearchedProjects, 30000);
     </script>
 </body>

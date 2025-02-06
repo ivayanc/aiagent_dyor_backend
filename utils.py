@@ -8,7 +8,7 @@ from agents.dyor_parser import DYORParser
 
 from connectors.moralis import MoralisConnector
 from connectors.bitquery_connector import BitqueryConnector
-from connectors.mongodb import TokenResearchInput, DatabaseManager, TokenAIReport
+from connectors.mongodb import TokenResearchInput, DatabaseManager, TokenAIReport, Token
 from connectors.twitter_connector import TwitterConnector
 from connectors.telegram import TelegramConnector
 from connectors.github import GitHubConnector
@@ -116,10 +116,23 @@ def get_ticker_decision(token_address: str, chain: str):
     print('------------------------------------------------------------------------')
     return openai.chat(message, lore)
 
+
 async def parse_dyor_report(file_path: str):
     parsed_dyor = dyor_parser.parse_document_with_openai(file_path)
     db_manager = DatabaseManager()
+    token = await db_manager.get_token_by_name(parsed_dyor['general_info']['project_name'])
+    if not token:
+        token = Token(
+            token_name=parsed_dyor['general_info']['project_name'],
+            token_address=parsed_dyor['general_info']['token_info']['token_address'],
+            token_chain=parsed_dyor['general_info']['token_info']['token_chain'],
+        )
+        token_id = await db_manager.save_token(token)
+    else:
+        token_id = token['_id']
+    token_id = str(token_id)
     input_data = TokenResearchInput(
+        token_id=token_id,
         token_name=parsed_dyor['general_info']['project_name'],
         token_address=parsed_dyor['general_info']['token_info']['token_address'],
         token_chain=parsed_dyor['general_info']['token_info']['token_chain'],
@@ -194,7 +207,8 @@ async def update_dyor_report(dyor_report: dict, token_address: str = None, token
         'repos_info': repos_info
     }
     db_manager = DatabaseManager()
-    ai_report = TokenAIReport(token_name=dyor_report.get('general_info', {}).get('project_name'), 
+    token = await db_manager.get_token_by_name(dyor_report.get('general_info', {}).get('project_name'))
+    ai_report = TokenAIReport(token_id=str(token['_id']), token_name=dyor_report.get('general_info', {}).get('project_name'), 
                               data=data)
     await db_manager.save_ai_report(ai_report)
     return data

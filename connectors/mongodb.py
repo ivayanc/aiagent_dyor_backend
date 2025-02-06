@@ -1,3 +1,4 @@
+from bson import ObjectId
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import Optional, List, Dict, Any
@@ -22,6 +23,7 @@ class TokenAnalysis(BaseModel):
     updated_at: datetime = datetime.utcnow()
 
 class TokenResearchInput(BaseModel):
+    token_id: str # Required reference to Token._id
     token_name: str
     token_address: Optional[str] = None
     token_chain: Optional[str] = None
@@ -30,6 +32,7 @@ class TokenResearchInput(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 class TokenAIReport(BaseModel):
+    token_id: str # Required reference to Token._id
     token_name: str
     token_address: Optional[str] = None
     token_chain: Optional[str] = None
@@ -105,38 +108,57 @@ class DatabaseManager:
 
     async def save_token(self, token: Token) -> None:
         coll = await MongoDBConnector.get_collection(self.tokens_collection)
-        await coll.insert_one(token.dict())
+        result = await coll.insert_one(token.dict())
+        return result.inserted_id
 
-    async def _include_ai_reports(self, token: dict, token_name: str) -> dict:
+    async def _include_token_data(self, token: dict) -> dict:
+        """Include both AI reports and research inputs for a token using MongoDB aggregation"""
         if not token:
             return None
-        token["ai_reports"] = await self.get_ai_reports(token_name=token_name)
-        for ai_report in token["ai_reports"]:
-            ai_report["_id"] = str(ai_report["_id"])
-        return token
-
-    async def _include_research_input(self, token: dict, token_name: str) -> dict:
-        if not token:
-            return None        
-        token["research_inputs"] = await self.get_research_inputs(token_name=token_name)
-        for research_input in token["research_inputs"]:
-            research_input["_id"] = str(research_input["_id"])
+        # Get AI reports
+        ai_coll = await MongoDBConnector.get_collection(self.ai_report_collection)
+        ai_pipeline = [
+            {"$match": {"token_id": str(token["_id"])}},
+            {"$sort": {"created_at": -1}},
+            {"$project": {
+                "_id": {"$toString": "$_id"},
+                "token_name": 1,
+                "token_address": 1,
+                "data": 1,
+                "created_at": 1
+            }}
+        ]
+        token["ai_reports"] = await ai_coll.aggregate(ai_pipeline).to_list(None)
+        # Get research inputs 
+        research_coll = await MongoDBConnector.get_collection(self.research_input_collection)
+        research_pipeline = [
+            {"$match": {"token_id": str(token["_id"])}},
+            {"$sort": {"created_at": -1}},
+            {"$project": {
+                "_id": {"$toString": "$_id"},
+                "token_name": 1,
+                "token_address": 1,
+                "token_chain": 1, 
+                "data": 1,
+                "created_at": 1
+            }}
+        ]
+        token["research_inputs"] = await research_coll.aggregate(research_pipeline).to_list(None)
+        
         return token
 
     async def get_token(self, token_address: str, chain: str, include_research: bool = False) -> Optional[Token]:
         coll = await MongoDBConnector.get_collection(self.tokens_collection)
         token = await coll.find_one({"token_address": token_address, "chain": chain})
         if include_research:
-            token = await self._include_ai_reports(token, token["token_name"])
-            token = await self._include_research_input(token, token["token_name"])
+            token = await self._include_token_data(token)
         return token
 
     async def get_token_by_name(self, token_name: str, chain: str = None, include_research: bool = True) -> Optional[Token]:
         coll = await MongoDBConnector.get_collection(self.tokens_collection)
         token = await coll.find_one({"token_name": token_name, "chain": chain})
         if include_research:
-            token = await self._include_ai_reports(token, token_name)
-            token = await self._include_research_input(token, token_name)
+            token = await self._include_token_data(token)
         return token
 
     async def save_research(self, research: TokenAnalysis) -> None:
@@ -171,8 +193,7 @@ class DatabaseManager:
         ]).skip(skip).limit(limit).to_list(limit)
         if include_research:
             for token in tokens:
-                token = await self._include_ai_reports(token, token["token_name"])
-                token = await self._include_research_input(token, token["token_name"])
+                token = await self._include_token_data(token)
         return tokens
         
     # DEPRECATED
@@ -206,61 +227,6 @@ class DatabaseManager:
             ("research_time", -1),
             ("_id", -1)
         ]).skip(skip).limit(limit).to_list(limit)
-
-    async def get_ai_reports(
-        self,
-        token_name: Optional[str] = None,
-        token_address: Optional[str] = None,
-        chain: Optional[str] = None,
-        skip: int = 0,
-        limit: int = 100,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
-    ) -> List[Dict[str, Any]]:
-        coll = await MongoDBConnector.get_collection(self.ai_report_collection)
-        
-        query = {}
-        if token_name:
-            query["token_name"] = token_name
-        if token_address:
-            query["token_address"] = token_address 
-        if chain:
-            query["token_chain"] = chain
-        if start_date or end_date:
-            query["research_time"] = {}
-            if start_date:
-                query["research_time"]["$gte"] = start_date
-            if end_date:
-                query["research_time"]["$lte"] = end_date
-        return await coll.find(query).sort("research_time", -1).skip(skip).limit(limit).to_list(limit)
-    
-    async def get_research_inputs(
-        self,
-        token_name: Optional[str] = None,
-        token_address: Optional[str] = None,
-        chain: Optional[str] = None,
-        skip: int = 0,
-        limit: int = 100,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
-    ) -> List[Dict[str, Any]]:
-        coll = await MongoDBConnector.get_collection(self.research_input_collection)
-        
-        query = {}
-        if token_name:
-            query["token_name"] = token_name
-        if token_address:
-            query["token_address"] = token_address 
-        if chain:
-            query["token_chain"] = chain
-        if start_date or end_date:
-            query["created_at"] = {}
-            if start_date:
-                query["created_at"]["$gte"] = start_date
-            if end_date:
-                query["created_at"]["$lte"] = end_date
-
-        return await coll.find(query).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
 
     async def save_research_input(self, research_input: TokenResearchInput) -> None:
         coll = await MongoDBConnector.get_collection(self.research_input_collection)

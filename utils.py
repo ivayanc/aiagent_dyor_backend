@@ -131,7 +131,7 @@ async def parse_dyor_report(file_path: str):
         token_address=parsed_dyor.get('general_info').get('token_info').get('token_address'), 
         token_chain=parsed_dyor.get('general_info').get('token_info').get('token_chain')
     )
-    return parsed_dyor
+    return {"input_report": parsed_dyor, "updated_report": data}
 
 
 def update_socials_from_dyor_report(platforms: list):
@@ -180,15 +180,49 @@ def update_dyor_report(dyor_report: dict, token_address: str = None, token_chain
     updated_development_status, repos_info = update_development_status(github_account)
     platforms = dyor_report.get('social_media', {}).get('platforms', [])
     updated_platforms = update_socials_from_dyor_report(platforms)
+    social_conclusion = make_social_conclusion(dyor_report, updated_development_status, updated_platforms, ticker_analytic)
     final_conclusion = make_final_conclusion(dyor_report, updated_development_status, updated_platforms, ticker_analytic)
     return {
         'updated_development_status': updated_development_status,
         'updated_platforms': updated_platforms,
+        'social_conclusion': json.loads(social_conclusion),
         'final_conclusion': final_conclusion,
         'ticker_analytic': ticker_analytic,
         'token_info': token_info,
         'repos_info': repos_info
     }
+
+
+# USE IF YOU NEED TO MAKE SOCIAL CONCLUSION
+CONCLUSTION_FORMAT = [
+    {"twitter": {"followers": {"old": 1000, "new": 1500, "change": 500}}},
+    {"telegram": {"followers": {"old": 1000, "new": 1500, "change": 500}}},
+    {"discord": {"followers": {"old": 1000, "new": 1500, "change": 500}}},
+    {".....": {"followers": {"old": 1000, "new": 1500, "change": 500}}}
+]
+
+def make_social_conclusion(dyor_report: dict, updated_development_status: str, updated_platforms: list, ticker_analytic: str):
+    lore = f"""
+    You are a DYOR (Do Your Own Research) report expert that builds reports for crypto projects.
+    You are tasked to make new Conclusion section for DYOR report.
+    You'll be provided with previous report in json format and updated development status and updated platforms and ticker analytic if token is realised already.
+    You should display dynamic of changes in social media followers.
+    You must return result as json always.
+    json format:
+    
+    """
+    message = f"""
+    Previous report:
+    {json.dumps(dyor_report, indent=4)}
+    Updated development status:
+    {updated_development_status}
+    Updated platforms:
+    {json.dumps(updated_platforms, indent=4)}
+    Ticker analytic:
+    {ticker_analytic}
+    """
+    return openai.chat(message, lore)
+
 
 def make_final_conclusion(dyor_report: dict, updated_development_status: str, updated_platforms: list, ticker_analytic: str):
     lore = f"""

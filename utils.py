@@ -71,6 +71,9 @@ def get_ticker_info_analysis(prompt: str):
     Thirdly you should take a look at max price and max price date.
     Fourthly you should take a look at total supply.
     Fifthly you should take a look at token name and symbol.
+    Your response only should have your conclusion no more that 4 sentences.
+    Response should be as text no more than 4 sentences.
+    Without ```html tags
     """
     return openai.chat(prompt, lore)
 
@@ -100,6 +103,8 @@ def get_ticker_decision(token_address: str, chain: str):
     9. Final decision: FINAL DECISION HERE(ONLY HIGH RISK, MEDIUM RISK, LOW RISK)
     10. Final confident level: FINAL CONFIDENT LEVEL HERE (Only number in %)
     11. Explanation: FINAL EXPLANATION HERE(No longer than 4 sentences)
+    Response should be as text no more than 5 sentences.
+    Without ```html tags
     """
     message = f"""
     Token name: {token_info['name']}
@@ -155,9 +160,9 @@ def update_socials_from_dyor_report(platforms: list):
             new_followers = TwitterConnector().get_user_info(platform.get('url').replace('https://x.com/', '').replace('https://twitter.com/', '')).get('result', {}).get('data', {}).get(
                 'user',
             {}).get('result', {}).get('legacy', {}).get('followers_count', 0)
-        if platform_name.lower() == 'telegram':
+        elif platform_name.lower() == 'telegram':
             new_followers = TelegramConnector().get_channel_followers(platform.get('url').replace('https://t.me/', ''))
-        if platform_name.lower() == 'discord':
+        elif platform_name.lower() == 'discord':
             new_followers = DiscordConnector().get_followers(platform.get('url').replace('https://discord.gg/', '').replace('https://discord.com/invite/', ''))
         else:
             new_followers = 0
@@ -183,9 +188,10 @@ def convert_token_chain(token_chain: str):
         return 'eth'
     return token_chain
 
-async def update_dyor_report(dyor_report: dict, token_address: str = None, token_chain: str = None):
+async def update_dyor_report(dyor_report: dict, token_address: str = None, token_chain: str = None, last_ai_report: dict = None):
+    if last_ai_report is None:
+        last_ai_report = {}
     token_info = None
-    token_analytic = None
     if token_address and token_chain:
         token_info = get_token_info(token_address=token_address, chain=convert_token_chain(token_chain))
         ticker_analytic = get_ticker_info_analysis(prepare_token_info_promt(token_info))
@@ -195,7 +201,7 @@ async def update_dyor_report(dyor_report: dict, token_address: str = None, token
     updated_development_status, repos_info = update_development_status(github_account)
     platforms = dyor_report.get('social_media', {}).get('platforms', [])
     updated_platforms = update_socials_from_dyor_report(platforms)
-    final_conclusion = make_final_conclusion(dyor_report, updated_development_status, updated_platforms, ticker_analytic)
+    final_conclusion = make_final_conclusion(dyor_report, updated_development_status, updated_platforms, ticker_analytic, last_ai_report)
     social_conclusion = '{"TODO": "TODO"}'
     data = {
         'updated_development_status': updated_development_status,
@@ -245,16 +251,18 @@ def make_social_conclusion(dyor_report: dict, updated_development_status: str, u
     return openai.chat(message, lore)
 
 
-def make_final_conclusion(dyor_report: dict, updated_development_status: str, updated_platforms: list, ticker_analytic: str):
+def make_final_conclusion(dyor_report: dict, updated_development_status: str, updated_platforms: list, ticker_analytic: str, last_ai_report: dict):
     lore = f"""
     You are a DYOR (Do Your Own Research) report expert that builds reports for crypto projects.
     You are tasked to make new Conclusion section for DYOR report.
-    You'll be provided with previous report in json format and updated development status and updated platforms and ticker analytic if token is realised already.
+    You'll be provided with initial report and previuos ai analysis(if exists) in json format and updated development status and updated platforms and ticker analytic if token is realised already.
     You should make new Conclusion section based on provided information.
     You must return result as text always
+    Response should be as text no more than 4 sentences.
+    Without ```html tags
     """
     message = f"""
-    Previous report:
+    Initial report:
     {json.dumps(dyor_report, indent=4)}
     Updated development status:
     {updated_development_status}
@@ -262,6 +270,8 @@ def make_final_conclusion(dyor_report: dict, updated_development_status: str, up
     {json.dumps(updated_platforms, indent=4)}
     Ticker analytic:
     {ticker_analytic}
+    Previous ai analysis:
+    {json.dumps(last_ai_report, indent=4)}
     """
     return openai.chat(message, lore)
 
@@ -279,5 +289,7 @@ def update_development_status(github_account):
     - repo programming language
     - repo stars
     Current date: {datetime.now().strftime('%Y-%m-%d')}
+    Response should be as text no more than 5 sentences.
+    Without ```html tags
     """
     return openai.chat(repos_info, lore), repos_info

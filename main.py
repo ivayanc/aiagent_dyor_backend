@@ -250,10 +250,12 @@ async def update_report_by_name(
         # Check if there are any research inputs
         if not token.research_inputs or len(token.research_inputs) == 0:
             raise HTTPException(status_code=404, detail="No research input data found for this token")
-            
         # Get the latest research input and convert to TokenResearchInput model
-        latest_input = TokenResearchInput(**token.research_inputs[0])
-        data = await update_dyor_report(dyor_report=token.research_inputs[0].get('data'), token_address=token.token_address, token_chain=token.token_chain)
+        if token.ai_reports and len(token.ai_reports) > 0:
+            last_ai_report = token.ai_reports[-1].get('data', None)
+        else:
+            last_ai_report = None
+        data = await update_dyor_report(dyor_report=token.research_inputs[-1].get('data'), token_address=token.token_address, token_chain=token.token_chain, last_ai_report=last_ai_report)
         return {
             "status": "success", 
             "data": data

@@ -600,8 +600,10 @@
         }
 
         .accordion-content.active {
-            max-height: 2000px; /* Adjust this value based on your content */
-            transition: max-height 0.5s ease-in;
+            max-height: 600px; /* Set a fixed height */
+            overflow-y: auto; /* Enable vertical scrolling */
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) #f1f5f9;
         }
 
         .accordion-arrow {
@@ -618,6 +620,112 @@
             font-size: 0.8em;
             color: #64748b;
             margin-left: 1rem;
+        }
+
+        .repos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .repo-card {
+            background: var(--background-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid #e2e8f0;
+            max-height: 300px; /* Set maximum height */
+            overflow-y: auto; /* Enable vertical scrolling */
+            scrollbar-width: thin; /* For Firefox */
+            scrollbar-color: var(--primary-color) #f1f5f9; /* For Firefox */
+        }
+
+        /* Webkit scrollbar styling */
+        .repo-card::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .repo-card::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        .repo-card::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+
+        .repo-card::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary-color);
+        }
+
+        /* Add styles for the scrollbar */
+        .accordion-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .accordion-content::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        .accordion-content::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+
+        .accordion-content::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary-color);
+        }
+
+        /* Add these new styles for token information */
+        .token-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .token-info-item {
+            background: var(--background-color);
+            padding: 1.25rem;
+            border-radius: var(--border-radius);
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .token-info-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary-color);
+        }
+
+        .info-label {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-value {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .info-value.positive {
+            color: #047857;
+        }
+
+        .info-value.negative {
+            color: #dc2626;
+        }
+
+        .token-info-icon {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            margin-right: 0.5rem;
+            vertical-align: middle;
         }
     </style>
 </head>
@@ -994,7 +1102,7 @@
                 if (data.status === 'success') {
                     const token = data.data;
                     const researchInput = token.research_inputs[0]?.data || null;
-                    const aiReport = token.ai_reports?.[0]?.data || null;
+                    const aiReport = token.ai_reports?.[token.ai_reports.length - 1]?.data || null;
                     
                     const modalContent = `
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -1015,10 +1123,53 @@
                                 </div>
                                 <div class="accordion-content">
                                     <div style="padding: 1rem;">
-                                        ${aiReport.updated_development_status ? `
+                                        ${aiReport.token_info ? `
                                             <div class="analysis-section">
-                                                <h4>Development Status</h4>
-                                                <p>${aiReport.updated_development_status}</p>
+                                                <h4>Token Information</h4>
+                                                <div class="token-info-grid">
+                                                    <div class="token-info-item">
+                                                        <div class="info-label">
+                                                            <span class="token-info-icon">💰</span>
+                                                            Total Supply
+                                                        </div>
+                                                        <div class="info-value">${aiReport.token_info.total_supply_formatted.toLocaleString()}</div>
+                                                    </div>
+                                                    <div class="token-info-item">
+                                                        <div class="info-label">
+                                                            <span class="token-info-icon">👥</span>
+                                                            Holders
+                                                        </div>
+                                                        <div class="info-value">${aiReport.token_info.holders_count.toLocaleString()}</div>
+                                                    </div>
+                                                    <div class="token-info-item">
+                                                        <div class="info-label">
+                                                            <span class="token-info-icon">📊</span>
+                                                            Current Price
+                                                        </div>
+                                                        <div class="info-value">$${aiReport.token_info.current_price.toFixed(4)}</div>
+                                                    </div>
+                                                    <div class="token-info-item">
+                                                        <div class="info-label">
+                                                            <span class="token-info-icon">📈</span>
+                                                            Max Price
+                                                        </div>
+                                                        <div class="info-value">$${aiReport.token_info.max_price.toFixed(4)}</div>
+                                                    </div>
+                                                    <div class="token-info-item">
+                                                        <div class="info-label">
+                                                            <span class="token-info-icon">💧</span>
+                                                            Liquidity
+                                                        </div>
+                                                        <div class="info-value">$${parseFloat(aiReport.token_info.liquidity).toLocaleString()}</div>
+                                                    </div>
+                                                    <div class="token-info-item">
+                                                        <div class="info-label">
+                                                            <span class="token-info-icon">🏆</span>
+                                                            Top Holders
+                                                        </div>
+                                                        <div class="info-value">${aiReport.token_info.top_holders.split(';').map(h => `${parseFloat(h).toFixed(2)}%`).join(', ')}</div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         ` : ''}
 
@@ -1043,19 +1194,25 @@
                                             </div>
                                         ` : ''}
 
-                                        ${aiReport.final_conclusion ? `
-                                            <div class="analysis-section">
-                                                <h4>Final Conclusion</h4>
-                                                <p>${aiReport.final_conclusion}</p>
-                                            </div>
-                                        ` : ''}
-
                                         ${aiReport.repos_info ? `
                                             <div class="analysis-section">
                                                 <h4>Repository Information</h4>
-                                                <pre style="white-space: pre-wrap; font-size: 0.9em; background: #f8fafc; padding: 1rem; border-radius: 8px;">
-                                                    ${aiReport.repos_info}
-                                                </pre>
+                                                <div class="repos-grid">
+                                                    ${aiReport.repos_info.split('==================================================')
+                                                        .filter(repo => repo.trim())
+                                                        .map(repo => `
+                                                            <div class="repo-card">
+                                                                <pre style="white-space: pre-wrap; font-size: 0.9em;">${repo.trim()}</pre>
+                                                            </div>
+                                                        `).join('')}
+                                                </div>
+                                            </div>
+                                        ` : ''}
+
+                                        ${aiReport.updated_development_status ? `
+                                            <div class="analysis-section">
+                                                <h4>Development Status</h4>
+                                                <p>${aiReport.updated_development_status}</p>
                                             </div>
                                         ` : ''}
 
@@ -1063,6 +1220,13 @@
                                             <div class="analysis-section">
                                                 <h4>Token Analytics</h4>
                                                 <p>${aiReport.ticker_analytic}</p>
+                                            </div>
+                                        ` : ''}
+
+                                        ${aiReport.final_conclusion ? `
+                                            <div class="analysis-section">
+                                                <h4>Final Conclusion</h4>
+                                                <p>${aiReport.final_conclusion}</p>
                                             </div>
                                         ` : ''}
                                     </div>
@@ -1209,7 +1373,11 @@
 
         // Add new function to handle AI research update
         async function updateAIResearch(tokenName) {
+            // Show loading overlay
             showLoading(true);
+            // Hide modal while loading
+            document.getElementById('modalOverlay').style.display = 'none';
+            
             try {
                 const response = await fetch(`${API_BASE_URL}/update-report-by-name/${encodeURIComponent(tokenName)}`);
                 const data = await response.json();
@@ -1220,10 +1388,14 @@
                     await showTokenDetails(tokenName);
                 } else {
                     showToast(data.message || 'Failed to update AI Research');
+                    // Show modal again if update fails
+                    document.getElementById('modalOverlay').style.display = 'flex';
                 }
             } catch (error) {
                 showToast('Error updating AI Research');
                 console.error('Error:', error);
+                // Show modal again if there's an error
+                document.getElementById('modalOverlay').style.display = 'flex';
             }
             showLoading(false);
         }

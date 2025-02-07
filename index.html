@@ -1105,8 +1105,8 @@
                     const aiReport = token.ai_reports?.[token.ai_reports.length - 1]?.data || null;
                     
                     const modalContent = `
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                            <h2 class="token-info">${token.token_name}</h2>
+                        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                            <h2 class="token-info" style="margin-right: 1rem;">${token.token_name}</h2>
                             <button onclick="updateAIResearch('${token.token_name}')" class="regenerate-btn">
                                 Update AI Research
                             </button>
@@ -1173,6 +1173,13 @@
                                             </div>
                                         ` : ''}
 
+                                        ${aiReport.updated_development_status ? `
+                                            <div class="analysis-section">
+                                                <h4>Development Status</h4>
+                                                <p>${aiReport.updated_development_status}</p>
+                                            </div>
+                                        ` : ''}
+
                                         ${aiReport.updated_platforms && aiReport.updated_platforms.length > 0 ? `
                                             <div class="analysis-section">
                                                 <h4>Social Media Presence</h4>
@@ -1194,6 +1201,13 @@
                                             </div>
                                         ` : ''}
 
+                                        ${aiReport.final_conclusion ? `
+                                            <div class="analysis-section">
+                                                <h4>Final Conclusion</h4>
+                                                <p>${aiReport.final_conclusion}</p>
+                                            </div>
+                                        ` : ''}
+
                                         ${aiReport.repos_info ? `
                                             <div class="analysis-section">
                                                 <h4>Repository Information</h4>
@@ -1209,24 +1223,10 @@
                                             </div>
                                         ` : ''}
 
-                                        ${aiReport.updated_development_status ? `
-                                            <div class="analysis-section">
-                                                <h4>Development Status</h4>
-                                                <p>${aiReport.updated_development_status}</p>
-                                            </div>
-                                        ` : ''}
-
                                         ${aiReport.ticker_analytic && aiReport.ticker_analytic !== 'No token info available.' ? `
                                             <div class="analysis-section">
                                                 <h4>Token Analytics</h4>
                                                 <p>${aiReport.ticker_analytic}</p>
-                                            </div>
-                                        ` : ''}
-
-                                        ${aiReport.final_conclusion ? `
-                                            <div class="analysis-section">
-                                                <h4>Final Conclusion</h4>
-                                                <p>${aiReport.final_conclusion}</p>
                                             </div>
                                         ` : ''}
                                     </div>

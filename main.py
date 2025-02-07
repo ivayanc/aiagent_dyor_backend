@@ -149,25 +149,25 @@ async def get_decision(chain: str, token_address: str):
 
 @app.post("/analyze-dyor")
 async def analyze_dyor(file: UploadFile = File(...)):
-    # try:
-    # Verify file extension
-    if not file.filename.endswith('.docx'):
-        return {"status": "error", "message": "Invalid file format. Please upload a .docx file"}
+    try:
+        #Verify file extension
+        if not file.filename.endswith('.docx'):
+            return {"status": "error", "message": "Invalid file format. Please upload a .docx file"}
 
-    # Save uploaded file temporarily
-    temp_file_path = f"temp_{file.filename}"
-    with open(temp_file_path, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
+        # Save uploaded file temporarily
+        temp_file_path = f"temp_{file.filename}"
+        with open(temp_file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
 
-    result = await parse_dyor_report(temp_file_path)
-    # Clean up temp file
-    os.remove(temp_file_path)
-    
-    return result
+        result = await parse_dyor_report(temp_file_path)
+        # Clean up temp file
+        os.remove(temp_file_path)
+        
+        return result
 
-    # except Exception as e:
-    #     return {"status": "error", "message": str(e)}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 @app.get("/token-by-name/{token_name}")

@@ -1032,7 +1032,7 @@
                 
                 if (data.status === 'success') {
                     showToast('DYOR report processed successfully');
-                    displayCurrentAnalysis(data.data);
+                    showTokenDetails(data.input_report.general_info.project_name);
                     await refreshResearchedProjects();
                 } else {
                     showToast(data.message || 'Failed to process DYOR report');
@@ -1084,10 +1084,6 @@
             const html = projects.map(project => `
                 <div class="project-card" onclick="showTokenDetails('${project.token_name}')">
                     <div class="project-name">${project.token_name}</div>
-                    <a href="https://example.com" 
-                       target="_blank" 
-                       class="project-link"
-                       onclick="event.stopPropagation()">View Website</a>
                 </div>
             `).join('');
             document.getElementById('projectsDashboard').innerHTML = html;

@@ -149,7 +149,7 @@ async def parse_dyor_report(file_path: str):
         token_address=parsed_dyor.get('general_info').get('token_info').get('token_address'), 
         token_chain=parsed_dyor.get('general_info').get('token_info').get('token_chain')
     )
-    return {"input_report": parsed_dyor, "updated_report": data}
+    return {"status":"success", "input_report": parsed_dyor, "updated_report": data}
 
 
 def update_socials_from_dyor_report(platforms: list):

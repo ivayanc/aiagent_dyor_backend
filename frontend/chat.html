@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Chat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>AI Research Assistant</h1>
+        <p>Chat with your AI agent about crypto research</p>
+    </div>
+
+    <div class="container">
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="ai-status">
+                    <span class="status-indicator"></span>
+                    AI Agent Online
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="message message-ai">
+                    Hello! I'm your AI research assistant. I can help you analyze cryptocurrency projects and provide detailed insights. What would you like to know?
+                    <div class="message-time">Just now</div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <textarea 
+                    class="chat-input" 
+                    id="messageInput" 
+                    placeholder="Type your message here..."
+                    rows="1"
+                    onkeydown="handleKeyPress(event)"></textarea>
+                <button class="send-button" onclick="sendMessage()" id="sendButton">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API_BASE_URL = 'http://0.0.0.0:8000';
+        const messageInput = document.getElementById('messageInput');
+        const chatMessages = document.getElementById('chatMessages');
+        const sendButton = document.getElementById('sendButton');
+
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        function formatTimestamp() {
+            return new Intl.DateTimeFormat('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(new Date());
+        }
+
+        function appendMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message message-${isUser ? 'user' : 'ai'}`;
+            messageDiv.innerHTML = `
+                ${content}
+                <div class="message-time">${formatTimestamp()}</div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Disable input and button while processing
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+
+            // Display user message
+            appendMessage(message, true);
+            messageInput.value = '';
+
+            // Show typing indicator
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message message-ai';
+            typingDiv.innerHTML = `
+                Typing<span class="loading-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </span>
+            `;
+            chatMessages.appendChild(typingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+                
+                // Remove typing indicator
+                chatMessages.removeChild(typingDiv);
+
+                if (data.status === 'success') {
+                    appendMessage(data.response);
+                } else {
+                    showToast('Failed to get response from AI');
+                    appendMessage('I apologize, but I encountered an error. Please try again.');
+                }
+            } catch (error) {
+                // Remove typing indicator
+                chatMessages.removeChild(typingDiv);
+                
+                console.error('Error:', error);
+                showToast('Failed to send message');
+                appendMessage('I apologize, but I encountered an error. Please try again.');
+            }
+
+            // Re-enable input and button
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+            messageInput.focus();
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // Auto-resize textarea as user types
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Focus input on page load
+        messageInput.focus();
+    </script>
+</body>
+</html> 

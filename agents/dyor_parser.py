@@ -148,10 +148,5 @@ class DYORParser(OpenAI):
         res = self.chat(prompt)
         
         pprint(res)
-        json_res = self.parse_json(res)
+        json_res = json.loads(res)
         return json_res
-
-    def parse_json(self, json_text = None):
-        if not json_text:
-            json_text = PARSE_DOCUMENT_EXAMPLE
-        return json.loads(json_text)

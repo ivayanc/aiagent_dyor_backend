@@ -52,6 +52,14 @@ class Token(BaseModel):
     
     
 
+class Attachment(BaseModel):
+    filename: str
+    file_path: str
+    content_type: str
+    size: int
+    uploaded_at: datetime = datetime.utcnow()
+    metadata: Optional[Dict[str, Any]] = None
+
 class MongoDBConnector:
     client: Optional[AsyncIOMotorClient] = None
     db_name: str = "DYOR"
@@ -76,6 +84,7 @@ class DatabaseManager:
         self.research_collection = "analysis"
         self.research_input_collection = "research_input"
         self.ai_report_collection = "ai_reports"
+        self.attachments_collection = "attachments"
 
     async def ensure_indexes(self):
         indexes = {
@@ -251,3 +260,15 @@ class DatabaseManager:
     async def save_ai_report(self, ai_report: TokenAIReport) -> None:
         coll = await MongoDBConnector.get_collection(self.ai_report_collection)
         await coll.insert_one(ai_report.dict())
+
+    async def save_attachment(self, attachment: Attachment) -> str:
+        """Save attachment metadata to MongoDB and return the ID"""
+        coll = await MongoDBConnector.get_collection(self.attachments_collection)
+        result = await coll.insert_one(attachment.dict())
+        return str(result.inserted_id)
+
+    async def get_attachment(self, attachment_id: str) -> Optional[Attachment]:
+        """Retrieve attachment metadata by ID"""
+        coll = await MongoDBConnector.get_collection(self.attachments_collection)
+        result = await coll.find_one({"_id": ObjectId(attachment_id)})
+        return Attachment(**result) if result else None

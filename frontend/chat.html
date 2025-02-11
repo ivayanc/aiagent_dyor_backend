@@ -6,6 +6,111 @@
     <title>AI Agent Chat</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        .attachment {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f0f0f0;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-top: 4px;
+        }
+        
+        .attachment svg {
+            color: #666;
+        }
+        
+        .attachment span {
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .attachment-preview {
+            padding: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .attachment-preview .attachment {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f0f0f0;
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+        
+        .attachment-preview .attachment svg {
+            color: #666;
+        }
+        
+        .attachment-preview .attachment span {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .dyor-report {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .dyor-header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+
+        .dyor-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .dyor-metadata {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .dyor-section {
+            margin: 20px 0;
+        }
+
+        .dyor-section-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .dyor-team-member {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .dyor-social {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .dyor-social-item {
+            background: #f5f5f5;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .dyor-investments {
+            border-left: 3px solid #eee;
+            padding-left: 15px;
+        }
+    </style>
 </head>
 <body>
     <div class="header">
@@ -30,6 +135,22 @@
             </div>
 
             <div class="chat-input-container">
+                <div id="attachmentPreview" class="attachment-preview"></div>
+                <div class="file-upload-container">
+                    <label class="file-upload-button" for="fileUpload" title="Upload DYOR Report">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                    </label>
+                    <input 
+                        type="file" 
+                        id="fileUpload" 
+                        class="file-upload-input"
+                        accept=".docx"
+                        onchange="handleFileUpload(event)"
+                    >
+                    <span id="fileName" class="file-name-display"></span>
+                </div>
                 <textarea 
                     class="chat-input" 
                     id="messageInput" 
@@ -54,6 +175,8 @@
         const messageInput = document.getElementById('messageInput');
         const chatMessages = document.getElementById('chatMessages');
         const sendButton = document.getElementById('sendButton');
+        
+        let currentAttachmentIds = [];
 
         function showLoading(show) {
             document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
@@ -75,6 +198,74 @@
             }).format(new Date());
         }
 
+        function formatDYORReport(report) {
+            return `
+                <div class="dyor-report">
+                    <div class="dyor-header">
+                        <div class="dyor-title">${report.document_title}</div>
+                        <div class="dyor-metadata">
+                            ${report.metadata.date_created ? `Created: ${report.metadata.date_created}` : ''}
+                            ${report.metadata.author ? `by ${report.metadata.author}` : ''}
+                        </div>
+                    </div>
+
+                    <div class="dyor-section">
+                        <div class="dyor-section-title">Summary</div>
+                        <p>${report.summary}</p>
+                    </div>
+
+                    ${report.sections.map(section => `
+                        <div class="dyor-section">
+                            <div class="dyor-section-title">${section.section_title}</div>
+                            <p>${section.content}</p>
+                            ${section.subsections.map(sub => `
+                                <div class="dyor-subsection">
+                                    <h4>${sub.subsection_title}</h4>
+                                    <p>${sub.content}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `).join('')}
+
+                    <div class="dyor-section">
+                        <div class="dyor-section-title">Team</div>
+                        ${report.team.map(member => `
+                            <div class="dyor-team-member">
+                                <strong>${member.name}</strong> - ${member.role}
+                                ${member.contacts.linkedin ? `<a href="${member.contacts.linkedin}" target="_blank">LinkedIn</a>` : ''}
+                                ${member.contacts.twitter ? `<a href="${member.contacts.twitter}" target="_blank">Twitter</a>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="dyor-section">
+                        <div class="dyor-section-title">Social Media</div>
+                        <div class="dyor-social">
+                            ${report.social_media.platforms.map(platform => `
+                                <div class="dyor-social-item">
+                                    ${platform.name}: ${platform.followers || 'N/A'}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="dyor-section">
+                        <div class="dyor-section-title">Investments</div>
+                        <div class="dyor-investments">
+                            ${report.investments.map(investment => `
+                                <div>
+                                    <strong>${investment.round_name}</strong>
+                                    <div>Date: ${investment.date}</div>
+                                    <div>Amount: ${investment.amount_raised}</div>
+                                    <div>Investors: ${investment.investors.map(i => i.name).join(', ')}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function appendMessage(content, isUser = false) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message message-${isUser ? 'user' : 'ai'}`;
@@ -90,15 +281,20 @@
             const message = messageInput.value.trim();
             if (!message) return;
 
-            // Disable input and button while processing
             messageInput.disabled = true;
             sendButton.disabled = true;
 
-            // Display user message
-            appendMessage(message, true);
-            messageInput.value = '';
+            const attachmentPreview = document.getElementById('attachmentPreview');
+            const attachmentHTML = attachmentPreview.innerHTML;
 
-            // Show typing indicator
+            appendMessage(`
+                ${message}
+                ${attachmentHTML}
+            `, true);
+
+            messageInput.value = '';
+            attachmentPreview.innerHTML = '';
+
             const typingDiv = document.createElement('div');
             typingDiv.className = 'message message-ai';
             typingDiv.innerHTML = `
@@ -110,29 +306,39 @@
             `;
             chatMessages.appendChild(typingDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
-
             try {
                 const response = await fetch(`${API_BASE_URL}/chat`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ message: message })
+                    body: JSON.stringify({ 
+                        message: message,
+                        attachment_ids: currentAttachmentIds
+                    })
                 });
+
+                currentAttachmentIds = [];
 
                 const data = await response.json();
                 
-                // Remove typing indicator
                 chatMessages.removeChild(typingDiv);
+                console.log(data);
 
-                if (data.status === 'success') {
-                    appendMessage(data.response);
+                if (data.success) {
+                    if (data.type === 'parsed_dyor') {
+                        appendMessage(formatDYORReport(data.response));
+                    } else {
+                        appendMessage(data.response);
+                    }
+                    if (data.requires_dyor) {
+                        appendMessage("I notice this might need a DYOR report. Would you like to upload one for better analysis?", false);
+                    }
                 } else {
                     showToast('Failed to get response from AI');
                     appendMessage('I apologize, but I encountered an error. Please try again.');
                 }
             } catch (error) {
-                // Remove typing indicator
                 chatMessages.removeChild(typingDiv);
                 
                 console.error('Error:', error);
@@ -140,10 +346,57 @@
                 appendMessage('I apologize, but I encountered an error. Please try again.');
             }
 
-            // Re-enable input and button
             messageInput.disabled = false;
             sendButton.disabled = false;
             messageInput.focus();
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.name.endsWith('.docx')) {
+                showToast('Please upload a .docx file');
+                event.target.value = '';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_BASE_URL}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentAttachmentIds.push(data.attachment_id);
+
+                    const attachmentPreview = document.getElementById('attachmentPreview');
+                    attachmentPreview.innerHTML += `
+                        <div class="attachment" data-attachment-id="${data.attachment_id}">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>${data.filename}</span>
+                        </div>
+                    `;
+                    
+                    showToast('File uploaded successfully');
+                } else {
+                    showToast(data.message || 'Failed to upload file');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to upload file');
+            }
+            
+            showLoading(false);
+            event.target.value = '';
         }
 
         function handleKeyPress(event) {
@@ -153,14 +406,12 @@
             }
         }
 
-        // Auto-resize textarea as user types
         messageInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = (this.scrollHeight) + 'px';
         });
 
-        // Focus input on page load
         messageInput.focus();
     </script>
 </body>
-</html> 
+</html>

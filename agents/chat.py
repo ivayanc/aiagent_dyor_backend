@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from .openai import OpenAI
 
 class ChatAgent(OpenAI):
@@ -12,7 +12,7 @@ class ChatAgent(OpenAI):
         about a specific token, you should suggest using the DYOR (Do Your Own Research) agent.
         """
 
-    async def chat_response(self, user_message: str, lore: Optional[str] = None) -> Dict[str, Any]:
+    async def chat_response(self, user_message: str, attachments: Optional[List[str]] = None, lore: Optional[str] = None) -> Dict[str, Any]:
         """
         Process user message and generate appropriate response
         """

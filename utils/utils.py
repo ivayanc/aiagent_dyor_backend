@@ -5,6 +5,7 @@ from pprint import pprint
 from agents.grok import GrokAI
 from agents.openai import OpenAI
 from agents.dyor_parser import DYORParser
+from agents.chat import ChatAgent
 
 from connectors.moralis import MoralisConnector
 from connectors.bitquery_connector import BitqueryConnector
@@ -23,7 +24,7 @@ openai = OpenAI(OPENAI_API_KEY)
 moralis_connector = MoralisConnector(MORALIS_API_KEY)
 bitquery_connector = BitqueryConnector(BITQUERY_API_KEY)
 dyor_parser = DYORParser(OPENAI_API_KEY)
-
+chat_agent = ChatAgent(OPENAI_API_KEY)
 
 def prepare_token_info_promt(token_info: dict):
     return f"""
@@ -293,3 +294,19 @@ def update_development_status(github_account):
     Without ```html tags
     """
     return openai.chat(repos_info, lore), repos_info
+
+import logging
+logger = logging.getLogger(__name__)
+
+
+async def chat_with_agent(message: str, attachment_ids = None):
+    logger.error(f"Chat with agent: {message} {attachment_ids}")
+    if attachment_ids:
+        db_manager = DatabaseManager()
+        attachments = [await db_manager.get_attachment(attachment_id) for attachment_id in attachment_ids]
+        return {
+            "success": True,
+            "response": dyor_parser.parse_document_with_openai(attachments[0].file_path),
+            "type": "parsed_dyor"
+        }
+    return await chat_agent.chat_response(message)
